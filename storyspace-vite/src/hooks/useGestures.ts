@@ -10,11 +10,13 @@ type SwipeOptions = {
 
 export function useSwipe({ onLeft, onRight, onUp, onDown, threshold = 56 }: SwipeOptions) {
   const start = useRef<{ x: number; y: number; id: number } | null>(null);
+  const lastSwipeAt = useRef(0);
 
-  return {
+  const bind = {
     onPointerDown(event: React.PointerEvent<HTMLElement>) {
       if (event.pointerType !== 'touch') return;
       start.current = { x: event.clientX, y: event.clientY, id: event.pointerId };
+      event.currentTarget.setPointerCapture?.(event.pointerId);
     },
     onPointerUp(event: React.PointerEvent<HTMLElement>) {
       const origin = start.current;
@@ -23,12 +25,19 @@ export function useSwipe({ onLeft, onRight, onUp, onDown, threshold = 56 }: Swip
       const dx = event.clientX - origin.x;
       const dy = event.clientY - origin.y;
       if (Math.max(Math.abs(dx), Math.abs(dy)) < threshold) return;
+      event.preventDefault();
+      lastSwipeAt.current = performance.now();
       if (Math.abs(dx) > Math.abs(dy)) (dx < 0 ? onLeft : onRight)?.();
       else (dy < 0 ? onUp : onDown)?.();
     },
     onPointerCancel() {
       start.current = null;
     },
+  };
+
+  return {
+    bind,
+    didSwipeRecently: () => performance.now() - lastSwipeAt.current < 420,
   };
 }
 

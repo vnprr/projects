@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
     paths:
-      - 'storyspace-vite/**'
+      - 'storyspace-vite/.preview'
       - '.github/workflows/storyspace-preview.yml'
 
 permissions:

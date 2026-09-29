@@ -1,0 +1,47 @@
+name: Storyspace preview
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'storyspace-vite/**'
+      - '.github/workflows/storyspace-preview.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: storyspace-preview
+  cancel-in-progress: true
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: storyspace-vite
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: storyspace-vite/package.json
+      - name: Install
+        run: npm install --no-audit --no-fund
+      - name: Build
+        run: npm run build
+      - name: Publish preview branch
+        working-directory: storyspace-vite/dist
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          touch .nojekyll
+          git init
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b storyspace-preview
+          git add .
+          git commit -m "Storyspace preview ${GITHUB_SHA}"
+          git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git push --force origin storyspace-preview

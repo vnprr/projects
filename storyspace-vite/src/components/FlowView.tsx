@@ -8,6 +8,7 @@ export function FlowView() {
   const { state, goToNode, goBack, setBranchIndex, setLevel } = useNavigation();
   const wheelAccumulator = useRef(0);
   const wheelLocked = useRef(false);
+  const wheelResetTimer = useRef<number | null>(null);
   const current = project.nodes.find((node) => node.id === state.currentNodeId) ?? project.nodes[0]!;
 
   const outgoing = useMemo(
@@ -59,7 +60,12 @@ export function FlowView() {
     return () => window.removeEventListener('keydown', onKeyDown);
   });
 
-  const swipe = useSwipe({ onLeft: next, onRight: previousStep, onUp: () => cycleBranch(1), onDown: () => cycleBranch(-1) });
+  const { bind: swipe, didSwipeRecently } = useSwipe({
+    onLeft: next,
+    onRight: previousStep,
+    onUp: () => cycleBranch(1),
+    onDown: () => cycleBranch(-1),
+  });
   const pinch = usePinch({ onZoomIn: () => setLevel('note'), onZoomOut: () => setLevel('canvas') });
 
   return (
@@ -74,27 +80,32 @@ export function FlowView() {
           setLevel(event.deltaY < 0 ? 'note' : 'canvas');
           return;
         }
+
         const delta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
+        if (Math.abs(delta) < 1) return;
         wheelAccumulator.current += delta;
-        if (Math.abs(wheelAccumulator.current) < 76) return;
+        if (wheelResetTimer.current) window.clearTimeout(wheelResetTimer.current);
+        wheelResetTimer.current = window.setTimeout(() => (wheelAccumulator.current = 0), 180);
+        if (Math.abs(wheelAccumulator.current) < 82) return;
+
         event.preventDefault();
         const forward = wheelAccumulator.current > 0;
         wheelAccumulator.current = 0;
         wheelLocked.current = true;
-        window.setTimeout(() => (wheelLocked.current = false), 330);
+        window.setTimeout(() => (wheelLocked.current = false), 360);
         forward ? next() : previousStep();
       }}
     >
       <div className="flow-orbit" aria-hidden="true" />
 
       {previous && (
-        <button className="flow-neighbor flow-previous" onClick={previousStep}>
+        <button className="flow-neighbor flow-previous" onClick={() => !didSwipeRecently() && previousStep()}>
           <span>before</span>
           <strong>{previous.title}</strong>
         </button>
       )}
 
-      <article className="flow-current" onClick={() => setLevel('note')}>
+      <article className="flow-current" onClick={() => !didSwipeRecently() && setLevel('note')}>
         <div className="flow-meta"><span>{project.nodes.findIndex((node) => node.id === current.id) + 1}</span><i /><span>{project.nodes.length}</span></div>
         <h1>{current.title}</h1>
         <p>{current.text}</p>
@@ -107,7 +118,7 @@ export function FlowView() {
             key={edge.id}
             className={`flow-neighbor flow-next-item branch-${index + 1} ${selectedIndex === index ? 'is-selected' : ''}`}
             onMouseEnter={() => setBranchIndex(index)}
-            onClick={() => goToNode(node.id)}
+            onClick={() => !didSwipeRecently() && goToNode(node.id)}
           >
             <span>{outgoing.length > 1 ? `path ${index + 1}` : 'next'}</span>
             <strong>{node.title}</strong>

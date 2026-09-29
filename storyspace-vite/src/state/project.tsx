@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type PropsWithChildren } from 'react';
+import { createContext, useCallback, useContext, useMemo, useRef, useState, type PropsWithChildren } from 'react';
 import { sampleProject } from '../domain/sampleProject';
 import type { Project } from '../domain/types';
 
@@ -24,25 +24,31 @@ function loadProject(): Project {
 }
 
 export function ProjectProvider({ children }: PropsWithChildren) {
-  const [project, setProject] = useState<Project>(loadProject);
+  const initialProject = useMemo(loadProject, []);
+  const projectRef = useRef<Project>(initialProject);
+  const [project, setProject] = useState<Project>(initialProject);
 
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(project));
-  }, [project]);
+  const commitProject = useCallback((next: Project) => {
+    projectRef.current = next;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+    setProject(next);
+  }, []);
 
   const updateNodeContent = useCallback((nodeId: string, title: string, text: string) => {
-    setProject((current) => ({
+    const current = projectRef.current;
+    commitProject({
       ...current,
       nodes: current.nodes.map((node) => node.id === nodeId ? { ...node, title, text, updatedAt: new Date().toISOString() } : node),
-    }));
-  }, []);
+    });
+  }, [commitProject]);
 
   const updateNodePosition = useCallback((nodeId: string, position: { x: number; y: number }) => {
-    setProject((current) => ({
+    const current = projectRef.current;
+    commitProject({
       ...current,
       nodes: current.nodes.map((node) => node.id === nodeId ? { ...node, position } : node),
-    }));
-  }, []);
+    });
+  }, [commitProject]);
 
   const value = useMemo(() => ({ project, updateNodeContent, updateNodePosition }), [project, updateNodeContent, updateNodePosition]);
   return <ProjectContext.Provider value={value}>{children}</ProjectContext.Provider>;

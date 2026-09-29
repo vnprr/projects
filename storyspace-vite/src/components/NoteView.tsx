@@ -24,9 +24,21 @@ export function NoteView() {
     return () => window.clearTimeout(timer);
   }, [node.id, title, text, updateNodeContent]);
 
-  useEffect(() => () => {
-    const value = latest.current;
-    updateNodeContent(value.nodeId, value.title, value.text);
+  useEffect(() => {
+    const flush = () => {
+      const value = latest.current;
+      updateNodeContent(value.nodeId, value.title, value.text);
+    };
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') flush();
+    };
+    window.addEventListener('pagehide', flush);
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => {
+      window.removeEventListener('pagehide', flush);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+      flush();
+    };
   }, [updateNodeContent]);
 
   useEffect(() => {
@@ -53,6 +65,10 @@ export function NoteView() {
               textRef.current?.focus();
             }
           }}
+          enterKeyHint="next"
+          autoCapitalize="sentences"
+          autoCorrect="on"
+          spellCheck
           aria-label="Note title"
         />
         <textarea
@@ -61,6 +77,9 @@ export function NoteView() {
           value={text}
           onChange={(event) => setText(event.target.value)}
           placeholder="Write…"
+          autoCapitalize="sentences"
+          autoCorrect="on"
+          spellCheck
           aria-label="Note text"
         />
       </div>

@@ -1,7 +1,6 @@
 import { Ambient } from './Ambient';
 import { CanvasView } from './CanvasView';
 import { DepthRail } from './DepthRail';
-import { FlowView } from './FlowView';
 import { NoteView } from './NoteView';
 import { useVisualViewportHeight } from '../hooks/useVisualViewport';
 import { useNavigation } from '../state/navigation';
@@ -17,8 +16,7 @@ export function App() {
     >
       <Ambient />
       <DepthRail />
-      {state.currentLevel === 'canvas' && <CanvasView />}
-      {state.currentLevel === 'flow' && <FlowView />}
+      {state.currentLevel !== 'note' && <CanvasView mode={state.currentLevel} />}
       {state.currentLevel === 'note' && <NoteView />}
     </main>
   );

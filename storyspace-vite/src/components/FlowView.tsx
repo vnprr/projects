@@ -1,14 +1,12 @@
-import { useEffect, useMemo, useRef } from 'react';
-import { useSwipe, usePinch } from '../hooks/useGestures';
+import { useEffect, useMemo } from 'react';
+import { useFlowMotion } from '../hooks/useFlowMotion';
+import { usePinch } from '../hooks/useGestures';
 import { useNavigation } from '../state/navigation';
 import { useProject } from '../state/project';
 
 export function FlowView() {
   const { project } = useProject();
   const { state, goToNode, goBack, setBranchIndex, setLevel } = useNavigation();
-  const wheelAccumulator = useRef(0);
-  const wheelLocked = useRef(false);
-  const wheelResetTimer = useRef<number | null>(null);
   const current = project.nodes.find((node) => node.id === state.currentNodeId) ?? project.nodes[0]!;
 
   const outgoing = useMemo(
@@ -32,102 +30,129 @@ export function FlowView() {
   const selectedIndex = Math.min(state.branchIndex, Math.max(0, outgoing.length - 1));
   const selectedNext = outgoing[selectedIndex];
 
-  const next = () => selectedNext && goToNode(selectedNext.node.id);
-  const previousStep = () => {
+  const goNext = () => {
+    if (selectedNext) goToNode(selectedNext.node.id);
+  };
+
+  const goPrevious = () => {
     if (state.history.length) goBack();
     else if (previous) goToNode(previous.id);
   };
+
   const cycleBranch = (delta: number) => {
     if (outgoing.length < 2) return;
     setBranchIndex((selectedIndex + delta + outgoing.length) % outgoing.length);
   };
 
+  const motion = useFlowMotion({
+    canNext: Boolean(selectedNext),
+    canPrevious: Boolean(previous),
+    canBranch: outgoing.length > 1,
+    onNext: goNext,
+    onPrevious: goPrevious,
+    onBranch: cycleBranch,
+    onZoomIn: () => setLevel('note'),
+    onZoomOut: () => setLevel('canvas'),
+  });
+
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') return setLevel('canvas');
-      if (event.key === 'Enter') return setLevel('note');
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        setLevel('canvas');
+        return;
+      }
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        setLevel('note');
+        return;
+      }
       if (event.key === 'ArrowRight' || event.key.toLowerCase() === 'd') {
-        event.preventDefault(); next();
-      } else if (event.key === 'ArrowLeft' || event.key.toLowerCase() === 'a') {
-        event.preventDefault(); previousStep();
-      } else if (event.key === 'ArrowUp' || event.key.toLowerCase() === 'w') {
-        event.preventDefault(); cycleBranch(-1);
-      } else if (event.key === 'ArrowDown' || event.key.toLowerCase() === 's') {
-        event.preventDefault(); cycleBranch(1);
+        event.preventDefault();
+        motion.commitNext();
+        return;
+      }
+      if (event.key === 'ArrowLeft' || event.key.toLowerCase() === 'a') {
+        event.preventDefault();
+        motion.commitPrevious();
+        return;
+      }
+      if (event.key === 'ArrowUp' || event.key.toLowerCase() === 'w') {
+        event.preventDefault();
+        motion.nudgeBranch(-1);
+        return;
+      }
+      if (event.key === 'ArrowDown' || event.key.toLowerCase() === 's') {
+        event.preventDefault();
+        motion.nudgeBranch(1);
       }
     };
+
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
   });
 
-  const { bind: swipe, didSwipeRecently } = useSwipe({
-    onLeft: next,
-    onRight: previousStep,
-    onUp: () => cycleBranch(1),
-    onDown: () => cycleBranch(-1),
+  const pinch = usePinch({
+    threshold: 0.16,
+    onZoomIn: () => setLevel('note'),
+    onZoomOut: () => setLevel('canvas'),
   });
-  const pinch = usePinch({ onZoomIn: () => setLevel('note'), onZoomOut: () => setLevel('canvas') });
 
   return (
     <section
       className={`scene flow-scene motion-${state.motion}`}
-      {...swipe}
+      {...motion.bind}
       {...pinch}
-      onWheel={(event) => {
-        if (wheelLocked.current) return;
-        if (event.ctrlKey || event.metaKey) {
-          event.preventDefault();
-          setLevel(event.deltaY < 0 ? 'note' : 'canvas');
-          return;
-        }
-
-        const delta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
-        if (Math.abs(delta) < 1) return;
-        wheelAccumulator.current += delta;
-        if (wheelResetTimer.current) window.clearTimeout(wheelResetTimer.current);
-        wheelResetTimer.current = window.setTimeout(() => (wheelAccumulator.current = 0), 180);
-        if (Math.abs(wheelAccumulator.current) < 82) return;
-
-        event.preventDefault();
-        const forward = wheelAccumulator.current > 0;
-        wheelAccumulator.current = 0;
-        wheelLocked.current = true;
-        window.setTimeout(() => (wheelLocked.current = false), 360);
-        forward ? next() : previousStep();
-      }}
+      aria-label="Story flow"
     >
       <div className="flow-orbit" aria-hidden="true" />
 
-      {previous && (
-        <button className="flow-neighbor flow-previous" onClick={() => !didSwipeRecently() && previousStep()}>
-          <span>before</span>
-          <strong>{previous.title}</strong>
-        </button>
-      )}
-
-      <article className="flow-current" onClick={() => !didSwipeRecently() && setLevel('note')}>
-        <div className="flow-meta"><span>{project.nodes.findIndex((node) => node.id === current.id) + 1}</span><i /><span>{project.nodes.length}</span></div>
-        <h1>{current.title}</h1>
-        <p>{current.text}</p>
-        <div className="flow-enter">tap to write</div>
-      </article>
-
-      <div className={`flow-next ${outgoing.length > 1 ? 'has-branches' : ''}`}>
-        {outgoing.map(({ edge, node }, index) => (
+      <div ref={motion.trackRef} className="flow-track">
+        {previous && (
           <button
-            key={edge.id}
-            className={`flow-neighbor flow-next-item branch-${index + 1} ${selectedIndex === index ? 'is-selected' : ''}`}
-            onMouseEnter={() => setBranchIndex(index)}
-            onClick={() => !didSwipeRecently() && goToNode(node.id)}
+            className="flow-neighbor flow-previous"
+            onClick={() => motion.canActivate() && motion.commitPrevious()}
           >
-            <span>{outgoing.length > 1 ? `path ${index + 1}` : 'next'}</span>
-            <strong>{node.title}</strong>
-            {outgoing.length > 1 && <small>{node.text.slice(0, 72)}…</small>}
+            <span>before</span>
+            <strong>{previous.title}</strong>
           </button>
-        ))}
+        )}
+
+        <article
+          className="flow-current"
+          onClick={() => motion.canActivate() && setLevel('note')}
+        >
+          <div className="flow-meta">
+            <span>{project.nodes.findIndex((node) => node.id === current.id) + 1}</span>
+            <i />
+            <span>{project.nodes.length}</span>
+          </div>
+          <h1>{current.title}</h1>
+          <p>{current.text}</p>
+          <div className="flow-enter">tap to write</div>
+        </article>
+
+        <div className={`flow-next ${outgoing.length > 1 ? 'has-branches' : ''}`}>
+          {outgoing.map(({ edge, node }, index) => (
+            <button
+              key={edge.id}
+              className={`flow-neighbor flow-next-item branch-${index + 1} ${selectedIndex === index ? 'is-selected' : ''}`}
+              onPointerDown={() => setBranchIndex(index)}
+              onMouseEnter={() => setBranchIndex(index)}
+              onClick={() => motion.canActivate() && motion.commitNext()}
+            >
+              <span>{outgoing.length > 1 ? `path ${index + 1}` : 'next'}</span>
+              <strong>{node.title}</strong>
+              {outgoing.length > 1 && <small>{node.text.slice(0, 72)}…</small>}
+            </button>
+          ))}
+        </div>
       </div>
 
-      <div className="flow-hint"><span className="desktop-hint">scroll / arrows · tap center to write · esc for map</span><span className="mobile-hint">swipe to move · tap to write · pinch for depth</span></div>
+      <div className="flow-hint">
+        <span className="desktop-hint">drag / trackpad / arrows · enter to write · esc for map</span>
+        <span className="mobile-hint">drag naturally · flick to move · tap to write</span>
+      </div>
     </section>
   );
 }

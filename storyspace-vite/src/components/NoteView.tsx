@@ -24,6 +24,7 @@ export function NoteView() {
     .map((edge) => ({ edge, node: project.nodes.find((item) => item.id === edge.to) }))
     .filter((item): item is { edge: (typeof project.edges)[number]; node: (typeof project.nodes)[number] } => Boolean(item.node)),
   [node.id, project.edges, project.nodes]);
+  const soleNext = outgoing.length === 1 ? outgoing[0]?.node ?? null : null;
 
   const flush = useCallback(() => {
     const value = latest.current;
@@ -99,11 +100,11 @@ export function NoteView() {
   };
 
   const maybeContinue = (amount: number) => {
-    if (outgoing.length !== 1 || !atBottom() || phase !== 'idle') return;
+    if (!soleNext || !atBottom() || phase !== 'idle') return;
     edgeWheel.current += amount;
     if (edgeWheel.current >= 118) {
       edgeWheel.current = 0;
-      navigateTo(outgoing[0].node.id);
+      navigateTo(soleNext.id);
     }
   };
 
@@ -116,7 +117,7 @@ export function NoteView() {
         ref={scrollRef}
         className={`note-scroll note-phase-${phase}`}
         onWheel={(event) => {
-          if (event.deltaY <= 0 || outgoing.length !== 1 || !atBottom()) {
+          if (event.deltaY <= 0 || !soleNext || !atBottom()) {
             edgeWheel.current = 0;
             return;
           }
@@ -127,17 +128,17 @@ export function NoteView() {
         onTouchStartCapture={(event) => {
           const touch = event.touches.item(0);
           if (!touch) return;
-          touchEdge.current = { startY: touch.clientY, armed: outgoing.length === 1 && atBottom() };
+          touchEdge.current = { startY: touch.clientY, armed: Boolean(soleNext) && atBottom() };
         }}
         onTouchMoveCapture={(event) => {
           const touch = event.touches.item(0);
           const gesture = touchEdge.current;
-          if (!touch || !gesture?.armed || phase !== 'idle') return;
+          if (!touch || !gesture?.armed || !soleNext || phase !== 'idle') return;
           const pull = gesture.startY - touch.clientY;
           if (pull > 112) {
             event.preventDefault();
             gesture.armed = false;
-            navigateTo(outgoing[0].node.id);
+            navigateTo(soleNext.id);
           }
         }}
         onTouchEndCapture={() => { touchEdge.current = null; }}
@@ -186,7 +187,7 @@ export function NoteView() {
                   </button>
                 ))}
               </div>
-              {outgoing.length === 1 && <em>scroll a little further to continue</em>}
+              {soleNext && <em>scroll a little further to continue</em>}
             </div>
           )}
         </div>

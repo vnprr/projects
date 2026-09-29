@@ -5,7 +5,7 @@ import { NavigationProvider } from './state/navigation';
 import { ProjectProvider } from './state/project';
 import { installBrowserGestureGuards } from './platform/browserGestures';
 import './styles.css';
-import './flowMotion.css';
+import './surface.css';
 
 installBrowserGestureGuards();
 

@@ -31,8 +31,8 @@ type StoryMapNode = Node<StoryMapData, 'story'>;
 
 function SemanticStoryNode({ data }: NodeProps<StoryMapNode>) {
   const { zoom } = useViewport();
-  const canvasTitle = zoom >= 0.48;
-  const canvasDetail = zoom >= 0.92;
+  const canvasTitle = zoom >= 0.46;
+  const canvasDetail = zoom >= 0.96;
   const showTitle = data.mode === 'flow' ? data.current || data.context : canvasTitle;
   const showText = data.mode === 'flow' ? data.current : canvasDetail;
 
@@ -51,7 +51,7 @@ function SemanticStoryNode({ data }: NodeProps<StoryMapNode>) {
       <Handle type="target" position={Position.Top} />
       <span className="semantic-map-node-mark" />
       {showTitle && <strong>{data.title}</strong>}
-      {showText && <p>{data.text.slice(0, 150)}</p>}
+      {showText && <p>{data.text.slice(0, 128)}</p>}
       <Handle type="source" position={Position.Bottom} />
     </div>
   );
@@ -67,7 +67,11 @@ function GraphCamera({ mode, positions }: { mode: GraphMode; positions: Record<s
   useEffect(() => {
     const frame = requestAnimationFrame(() => {
       if (mode === 'canvas') {
-        void fitView({ padding: 0.2, maxZoom: 0.68, duration: initialized.current ? 430 : 0 });
+        void fitView({
+          padding: 0.24,
+          maxZoom: 0.66,
+          duration: initialized.current ? 520 : 0,
+        });
         initialized.current = true;
         return;
       }
@@ -75,9 +79,11 @@ function GraphCamera({ mode, positions }: { mode: GraphMode; positions: Record<s
       const position = positions[state.currentNodeId];
       if (!position) return;
       const compact = window.matchMedia('(max-width: 640px)').matches;
-      void setCenter(position.x + 145, position.y + 78, {
-        zoom: compact ? 1.02 : 1.16,
-        duration: initialized.current ? 430 : 0,
+      const width = compact ? 222 : 238;
+      const height = compact ? 108 : 116;
+      void setCenter(position.x + width / 2, position.y + height / 2, {
+        zoom: compact ? 0.78 : 0.9,
+        duration: initialized.current ? 520 : 0,
       });
       initialized.current = true;
     });
@@ -102,22 +108,28 @@ function CanvasInner({ mode }: { mode: GraphMode }) {
     return ids;
   }, [project.edges, state.currentNodeId]);
 
-  const nodes = useMemo<StoryMapNode[]>(() => project.nodes.map((node) => ({
-    id: node.id,
-    type: 'story',
-    position: positions[node.id] ?? { x: 0, y: 0 },
-    draggable: false,
-    selectable: false,
-    data: {
-      title: node.title,
-      text: node.text,
-      current: node.id === state.currentNodeId,
-      context: contextIds.has(node.id),
-      branch: project.edges.filter((edge) => edge.from === node.id).length > 1,
-      mode,
-    },
-    className: `story-map-node ${mode === 'flow' && node.id !== state.currentNodeId && !contextIds.has(node.id) ? 'is-distant' : ''}`,
-  })), [contextIds, mode, positions, project.edges, project.nodes, state.currentNodeId]);
+  const nodes = useMemo<StoryMapNode[]>(() => project.nodes.map((node) => {
+    const current = node.id === state.currentNodeId;
+    const context = contextIds.has(node.id);
+    return {
+      id: node.id,
+      type: 'story',
+      position: positions[node.id] ?? { x: 0, y: 0 },
+      draggable: false,
+      selectable: false,
+      focusable: false,
+      zIndex: current ? 4 : context ? 2 : 0,
+      data: {
+        title: node.title,
+        text: node.text,
+        current,
+        context,
+        branch: project.edges.filter((edge) => edge.from === node.id).length > 1,
+        mode,
+      },
+      className: `story-map-node ${mode === 'flow' && !current && !context ? 'is-distant' : ''}`,
+    };
+  }), [contextIds, mode, positions, project.edges, project.nodes, state.currentNodeId]);
 
   const edges = useMemo<Edge[]>(() => project.edges.map((edge) => {
     const contextual = edge.from === state.currentNodeId || edge.to === state.currentNodeId;
@@ -125,7 +137,8 @@ function CanvasInner({ mode }: { mode: GraphMode }) {
       id: edge.id,
       source: edge.from,
       target: edge.to,
-      type: 'smoothstep',
+      type: 'bezier',
+      focusable: false,
       className: [
         'story-edge',
         edge.type === 'branch' ? 'is-branch' : '',
@@ -143,9 +156,11 @@ function CanvasInner({ mode }: { mode: GraphMode }) {
         nodeTypes={nodeTypes}
         nodesDraggable={false}
         nodesConnectable={false}
+        nodesFocusable={false}
+        edgesFocusable={false}
         elementsSelectable={false}
         minZoom={0.2}
-        maxZoom={1.72}
+        maxZoom={1.64}
         panOnDrag
         panOnScroll={false}
         zoomOnScroll
@@ -169,8 +184,8 @@ function CanvasInner({ mode }: { mode: GraphMode }) {
         }}
         onMoveEnd={(_, viewport) => {
           if (mode === 'canvas' && viewport.zoom > 0.9) setLevel('flow');
-          if (mode === 'flow' && viewport.zoom < 0.7) setLevel('canvas');
-          if (mode === 'flow' && viewport.zoom > 1.52) setLevel('note');
+          if (mode === 'flow' && viewport.zoom < 0.58) setLevel('canvas');
+          if (mode === 'flow' && viewport.zoom > 1.48) setLevel('note');
         }}
       >
         <GraphCamera mode={mode} positions={positions} />
@@ -178,7 +193,7 @@ function CanvasInner({ mode }: { mode: GraphMode }) {
       <div className="canvas-hint">
         {mode === 'canvas'
           ? 'drag to explore · scroll / pinch to zoom · tap a node to focus'
-          : 'tap another node to follow · tap focused node or zoom in to write'}
+          : 'scroll to change depth · tap a neighbour to follow · tap the focus to write'}
       </div>
     </section>
   );

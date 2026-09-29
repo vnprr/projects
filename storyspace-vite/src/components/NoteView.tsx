@@ -35,7 +35,9 @@ export function NoteView() {
     setText(node.text);
     latest.current = { nodeId: node.id, title: node.title, text: node.text };
     scrollRef.current?.scrollTo({ top: 0 });
-  }, [node.id, node.text, node.title]);
+  // node.id is the boundary between documents; project persistence must not reset scroll while typing.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [node.id]);
 
   useLayoutEffect(() => {
     const textarea = textRef.current;

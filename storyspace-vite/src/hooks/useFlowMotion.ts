@@ -43,7 +43,6 @@ export function useFlowMotion(options: FlowMotionOptions) {
   const animationTimers = useRef<number[]>([]);
   const animatingRef = useRef(false);
   const suppressClickUntilRef = useRef(0);
-  const currentMotionRef = useRef({ x: 0, y: 0 });
   const rafRef = useRef<number | null>(null);
 
   optionsRef.current = options;
@@ -60,7 +59,6 @@ export function useFlowMotion(options: FlowMotionOptions) {
   };
 
   const applyMotion = (x: number, y = 0, animate = false) => {
-    currentMotionRef.current = { x, y };
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
     rafRef.current = requestAnimationFrame(() => {
       const track = trackRef.current;
@@ -77,10 +75,7 @@ export function useFlowMotion(options: FlowMotionOptions) {
 
   const snapBack = () => {
     applyMotion(0, 0, true);
-    schedule(() => {
-      const track = trackRef.current;
-      track?.classList.remove('is-animating');
-    }, ENTER_MS);
+    schedule(() => trackRef.current?.classList.remove('is-animating'), ENTER_MS);
   };
 
   const commit = (direction: Direction) => {
@@ -109,9 +104,7 @@ export function useFlowMotion(options: FlowMotionOptions) {
       else currentOptions.onPrevious();
 
       applyMotion(-sign * enterDistance, 0, false);
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => applyMotion(0, 0, true));
-      });
+      requestAnimationFrame(() => requestAnimationFrame(() => applyMotion(0, 0, true)));
 
       schedule(() => {
         animatingRef.current = false;
@@ -135,7 +128,13 @@ export function useFlowMotion(options: FlowMotionOptions) {
 
   const bind = {
     onPointerDown(event: React.PointerEvent<HTMLElement>) {
-      if (animatingRef.current || !event.isPrimary) return;
+      if (animatingRef.current) return;
+      if (!event.isPrimary) {
+        resetPointer();
+        snapBack();
+        return;
+      }
+
       const now = performance.now();
       pointerRef.current = {
         id: event.pointerId,
@@ -177,8 +176,7 @@ export function useFlowMotion(options: FlowMotionOptions) {
         event.preventDefault();
         const movingTowardNext = dx < 0;
         const allowed = movingTowardNext ? optionsRef.current.canNext : optionsRef.current.canPrevious;
-        const rubber = allowed ? 1 : 0.18;
-        applyMotion(dx * rubber, 0, false);
+        applyMotion(dx * (allowed ? 1 : 0.18), 0, false);
         return;
       }
 
@@ -200,8 +198,7 @@ export function useFlowMotion(options: FlowMotionOptions) {
       if (pointer.axis === 'x') {
         const threshold = Math.min(96, window.innerWidth * 0.22);
         const fastFlick = Math.abs(pointer.velocityX) > 0.52 && Math.abs(dx) > 24;
-        const passedDistance = Math.abs(dx) >= threshold;
-        if (fastFlick || passedDistance) commit(dx < 0 ? 'next' : 'previous');
+        if (Math.abs(dx) >= threshold || fastFlick) commit(dx < 0 ? 'next' : 'previous');
         else snapBack();
         return;
       }
@@ -241,8 +238,7 @@ export function useFlowMotion(options: FlowMotionOptions) {
       if (Math.abs(raw) < 0.5) return;
 
       const multiplier = event.deltaMode === 1 ? 14 : event.deltaMode === 2 ? window.innerHeight : 1;
-      wheel.amount += raw * multiplier;
-      wheel.amount = clamp(wheel.amount, -150, 150);
+      wheel.amount = clamp(wheel.amount + raw * multiplier, -150, 150);
       applyMotion(clamp(-wheel.amount * 0.72, -118, 118), 0, false);
 
       if (wheel.resetTimer) window.clearTimeout(wheel.resetTimer);

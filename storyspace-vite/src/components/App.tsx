@@ -1,6 +1,7 @@
 import { Ambient } from './Ambient';
 import { CanvasView } from './CanvasView';
 import { DepthRail } from './DepthRail';
+import { NavigatorPanel } from './NavigatorPanel';
 import { NoteView } from './NoteView';
 import { useVisualViewportHeight } from '../hooks/useVisualViewport';
 import { useNavigation } from '../state/navigation';
@@ -15,6 +16,7 @@ export function App() {
       style={viewportHeight ? { height: `${viewportHeight}px` } : undefined}
     >
       <Ambient />
+      <NavigatorPanel />
       <DepthRail />
       {state.currentLevel !== 'note' && <CanvasView mode={state.currentLevel} />}
       {state.currentLevel === 'note' && <NoteView />}

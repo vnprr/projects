@@ -1,6 +1,110 @@
-.react-flow__node.story-map-node{width:auto!important;border:0!important;border-radius:0!important;background:transparent!important;padding:0!important;box-shadow:none!important;outline:none!important;transition:opacity .3s ease,filter .3s ease}.react-flow__node.story-map-node:focus,.react-flow__node.story-map-node:focus-visible{outline:none!important;box-shadow:none!important}.react-flow__node.story-map-node.is-distant{opacity:.055;filter:blur(.3px)}
-.semantic-map-node{position:relative;width:54px;min-height:26px;display:grid;align-content:center;gap:7px;padding:9px 11px;border:1px solid rgba(255,255,255,.085);border-radius:15px;background:rgba(12,13,16,.72);color:rgba(255,255,255,.78);box-shadow:0 12px 36px rgba(0,0,0,.1);transition:width .28s cubic-bezier(.22,.82,.2,1),min-height .28s cubic-bezier(.22,.82,.2,1),padding .28s ease,border-color .28s ease,background .28s ease,box-shadow .28s ease,opacity .28s ease,transform .28s ease}
-.semantic-map-node.shows-title{width:176px;min-height:68px;padding:13px 15px}.semantic-map-node.shows-text{width:196px;min-height:92px}.semantic-map-node.mode-flow.is-context{width:154px;min-height:58px;padding:12px 14px;background:rgba(12,13,16,.5);border-color:rgba(255,255,255,.06);opacity:.56;box-shadow:0 8px 24px rgba(0,0,0,.08)}.semantic-map-node.mode-flow.is-current{width:238px;min-height:116px;padding:18px 20px;background:rgba(13,14,17,.86);border-color:rgba(255,255,255,.14);box-shadow:0 20px 58px rgba(0,0,0,.24),0 0 0 1px rgba(255,255,255,.018) inset}.semantic-map-node.mode-flow:not(.is-current):not(.is-context){opacity:.11}.semantic-map-node.is-branch{border-style:solid}.semantic-map-node-mark{width:12px;height:2px;border-radius:99px;background:rgba(255,255,255,.4)}.semantic-map-node strong{display:block;font:520 12px/1.24 Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;letter-spacing:-.01em}.semantic-map-node.mode-flow.is-current strong{font:470 clamp(22px,2.5vw,28px)/1.04 Georgia,"Times New Roman",serif;letter-spacing:-.028em}.semantic-map-node p{margin:1px 0 0;color:rgba(255,255,255,.34);font:400 9.5px/1.46 Georgia,"Times New Roman",serif}.semantic-map-node.mode-flow.is-current p{max-width:33ch;color:rgba(255,255,255,.5);font-size:12px;line-height:1.5}.semantic-map-node .react-flow__handle{width:1px!important;height:1px!important;min-width:1px!important;min-height:1px!important;border:0!important;background:transparent!important;opacity:0!important;pointer-events:none!important}
-.react-flow__edge-path{fill:none!important;stroke-linecap:round!important}.graph-mode-flow .react-flow__edge-path{stroke:rgba(255,255,255,.035)!important;stroke-width:1.1!important;transition:stroke .26s ease,opacity .26s ease}.graph-mode-flow .story-edge.is-context .react-flow__edge-path{stroke:rgba(255,255,255,.17)!important;stroke-width:1.25!important}.graph-mode-flow .story-edge.is-distant .react-flow__edge-path{opacity:.16}.story-edge.is-branch .react-flow__edge-path{stroke-dasharray:none!important}.graph-mode-canvas .react-flow__edge-path{stroke:rgba(255,255,255,.095)!important;stroke-width:1.05!important}.react-flow__pane{cursor:grab}.react-flow__pane:active{cursor:grabbing}.react-flow__viewport{transition:filter .24s ease}.graph-mode-flow .react-flow__viewport{filter:saturate(.78)}
-.graph-mode-flow .canvas-label{opacity:.5}.graph-mode-flow .canvas-hint{opacity:.7}
-@media(max-width:640px){.semantic-map-node.shows-title{width:150px}.semantic-map-node.shows-text{width:168px}.semantic-map-node.mode-flow.is-context{width:132px;min-height:54px;padding:11px 12px}.semantic-map-node.mode-flow.is-current{width:222px;min-height:108px;padding:17px 18px}.semantic-map-node.mode-flow.is-current strong{font-size:25px}.semantic-map-node.mode-flow.is-current p{font-size:11px;line-height:1.48}.graph-mode-flow .canvas-hint{max-width:78vw;text-align:center;white-space:normal;line-height:1.35}}
+.react-flow__node.story-map-node{
+  width:auto!important;
+  border:0!important;
+  border-radius:0!important;
+  background:transparent!important;
+  padding:0!important;
+  box-shadow:none!important;
+  outline:none!important;
+  transition:transform .38s cubic-bezier(.2,.82,.2,1),opacity .24s ease;
+}
+.react-flow__node.story-map-node:focus,
+.react-flow__node.story-map-node:focus-visible{outline:none!important;box-shadow:none!important}
+
+.semantic-map-node{
+  position:relative;
+  width:48px;
+  min-height:22px;
+  display:grid;
+  align-content:center;
+  gap:6px;
+  padding:8px 10px;
+  border:1px solid rgba(255,255,255,.075);
+  border-radius:14px;
+  background:rgba(12,13,16,.62);
+  color:rgba(255,255,255,.78);
+  box-shadow:0 10px 30px rgba(0,0,0,.08);
+  transition:
+    width .22s cubic-bezier(.2,.82,.2,1),
+    min-height .22s cubic-bezier(.2,.82,.2,1),
+    padding .22s ease,
+    border-color .22s ease,
+    background .22s ease,
+    box-shadow .22s ease,
+    transform .22s ease,
+    opacity .22s ease;
+}
+.semantic-map-node.shows-title{
+  width:168px;
+  min-height:62px;
+  padding:13px 15px;
+}
+.semantic-map-node.shows-text{
+  width:186px;
+  min-height:90px;
+}
+.semantic-map-node.is-current{
+  border-color:rgba(255,255,255,.22);
+  background:rgba(15,16,19,.82);
+  box-shadow:0 18px 48px rgba(0,0,0,.18),0 0 0 1px rgba(255,255,255,.012) inset;
+  transform:scale(1.025);
+}
+.semantic-map-node.is-branch{border-color:rgba(255,255,255,.11)}
+.semantic-map-node-mark{
+  width:11px;
+  height:2px;
+  border-radius:999px;
+  background:rgba(255,255,255,.36);
+}
+.semantic-map-node.is-current .semantic-map-node-mark{background:rgba(255,255,255,.62)}
+.semantic-map-node strong{
+  display:block;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  color:rgba(255,255,255,.78);
+  font:520 12px/1.24 Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  letter-spacing:-.012em;
+}
+.semantic-map-node p{
+  margin:1px 0 0;
+  color:rgba(255,255,255,.34);
+  font:400 9.5px/1.48 Georgia,"Times New Roman",serif;
+}
+.semantic-map-node .react-flow__handle{
+  width:1px!important;
+  height:1px!important;
+  min-width:1px!important;
+  min-height:1px!important;
+  border:0!important;
+  background:transparent!important;
+  opacity:0!important;
+  pointer-events:none!important;
+}
+
+.react-flow__edge-path,
+.story-routed-path{
+  fill:none!important;
+  stroke:rgba(255,255,255,.105)!important;
+  stroke-width:1.15!important;
+  stroke-linecap:round!important;
+  stroke-linejoin:round!important;
+  vector-effect:non-scaling-stroke;
+  transition:stroke .2s ease,opacity .2s ease;
+}
+.story-edge.is-branch .story-routed-path{
+  stroke:rgba(255,255,255,.13)!important;
+}
+.story-edge:hover .story-routed-path{
+  stroke:rgba(255,255,255,.22)!important;
+}
+.react-flow__pane{cursor:grab}
+.react-flow__pane:active{cursor:grabbing}
+.react-flow__selection{display:none!important}
+
+@media(max-width:640px){
+  .semantic-map-node.shows-title{width:148px;min-height:58px;padding:12px 13px}
+  .semantic-map-node.shows-text{width:164px;min-height:82px}
+  .semantic-map-node strong{font-size:11px}
+  .semantic-map-node p{font-size:9px}
+  .semantic-map-node.is-current{transform:scale(1.018)}
+}

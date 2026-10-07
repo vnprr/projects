@@ -329,9 +329,6 @@ function CanvasInner() {
         <em>continuation</em>
       </button>
 
-      <div className="canvas-hint">
-        drag · scroll / pinch to zoom · tap to focus · tap again to write
-      </div>
     </section>
   );
 }

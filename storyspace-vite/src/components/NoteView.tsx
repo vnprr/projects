@@ -31,7 +31,7 @@ function clamp01(value: number) {
 }
 
 export function NoteView() {
-  const { project, updateNodeContent } = useProject();
+  const { project, updateNodeContent, createNodeAfter, linkExistingNode } = useProject();
   const { state, setLevel, goToNode, goBack } = useNavigation();
   const node = project.nodes.find((item) => item.id === state.currentNodeId) ?? project.nodes[0]!;
 
@@ -42,6 +42,7 @@ export function NoteView() {
   const [edgeState, setEdgeState] = useState({ top: true, bottom: false });
   const [gate, setGate] = useState<{ direction: EdgeDirection; progress: number }>({ direction: null, progress: 0 });
   const [branchOpen, setBranchOpen] = useState(false);
+  const [linkPickerOpen, setLinkPickerOpen] = useState(false);
 
   const textRef = useRef<HTMLTextAreaElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -102,6 +103,7 @@ export function NoteView() {
     setText(node.text);
     latest.current = { nodeId: node.id, title: node.title, text: node.text };
     setBranchOpen(false);
+    setLinkPickerOpen(false);
     resetGate();
     wheelSession.current = { active: false, edge: null, pull: 0 };
     touchSession.current = null;
@@ -295,6 +297,23 @@ export function NoteView() {
     finishWheelSessionSoon();
   };
 
+  const createContinuation = useCallback(() => {
+    const created = createNodeAfter(node.id);
+    navigateForward(created.id);
+  }, [createNodeAfter, navigateForward, node.id]);
+
+  const linkCandidates = useMemo(() => {
+    const linked = new Set(outgoing.map(({ node: nextNode }) => nextNode.id));
+    return project.nodes.filter((candidate) => candidate.id !== node.id && !linked.has(candidate.id));
+  }, [node.id, outgoing, project.nodes]);
+
+  const connectExisting = useCallback((targetId: string) => {
+    const linked = linkExistingNode(node.id, targetId);
+    if (!linked) return;
+    setLinkPickerOpen(false);
+    setBranchOpen(true);
+  }, [linkExistingNode, node.id]);
+
   const pinch = usePinch({ onZoomOut: () => setLevel('canvas') });
   const easedPull = 1 - Math.pow(1 - gate.progress, 2.2);
   const signedPull = gate.direction === 'bottom'
@@ -306,6 +325,7 @@ export function NoteView() {
   const sceneStyle = {
     '--note-pull-offset': `${signedPull}px`,
     '--note-pull-progress': String(gate.progress),
+    '--note-pull-angle': `${Math.round(gate.progress * 360)}deg`,
   } as CSSProperties;
 
   return (
@@ -328,8 +348,11 @@ export function NoteView() {
       {previousNode && (
         <div className={`note-edge note-edge-top ${edgeState.top || gate.direction === 'top' ? 'is-visible' : ''}`}>
           <button onClick={navigatePrevious}>
-            <small>previous</small>
-            <strong>{previousNode.title || 'Untitled'}</strong>
+            <span className="note-gate-ring" aria-hidden="true" />
+            <span className="note-edge-copy">
+              <small>{gate.direction === 'top' ? (gate.progress >= 1 ? 'release' : 'pull') : 'previous'}</small>
+              <strong>{previousNode.title || 'Untitled'}</strong>
+            </span>
           </button>
         </div>
       )}
@@ -434,41 +457,73 @@ export function NoteView() {
         </div>
       </div>
 
-      {outgoing.length > 0 && (
-        <div
-          className={[
-            'note-edge',
-            'note-edge-bottom',
-            edgeState.bottom || gate.direction === 'bottom' ? 'is-visible' : '',
-            outgoing.length > 1 ? 'has-branches' : '',
-            branchOpen ? 'is-open' : '',
-          ].filter(Boolean).join(' ')}
-        >
-          {soleNext ? (
+      <div
+        className={[
+          'note-edge',
+          'note-edge-bottom',
+          edgeState.bottom || gate.direction === 'bottom' ? 'is-visible' : '',
+          outgoing.length > 1 ? 'has-branches' : '',
+          branchOpen ? 'is-open' : '',
+        ].filter(Boolean).join(' ')}
+      >
+        {soleNext ? (
+          <div className="note-edge-row">
             <button className="note-edge-single" onClick={() => navigateForward(soleNext.id)}>
-              <small>next</small>
-              <strong>{soleNext.title || 'Untitled'}</strong>
+              <span className="note-gate-ring" aria-hidden="true" />
+              <span className="note-edge-copy">
+                <small>{gate.direction === 'bottom' ? (gate.progress >= 1 ? 'release' : 'pull') : 'next'}</small>
+                <strong>{soleNext.title || 'Untitled'}</strong>
+              </span>
               <span className="note-edge-arrow" />
             </button>
-          ) : branchOpen ? (
-            <div className="note-edge-branches">
-              <div className="note-edge-branch-label">choose next</div>
-              {outgoing.map(({ edge, node: nextNode }, index) => (
-                <button key={edge.id} onClick={() => navigateForward(nextNode.id)}>
-                  <small>path {index + 1}</small>
-                  <strong>{nextNode.title || 'Untitled'}</strong>
+            <button className="note-path-add" onClick={createContinuation} aria-label="Add another path">+</button>
+          </div>
+        ) : outgoing.length > 1 && branchOpen ? (
+          <div className="note-edge-branches">
+            <div className="note-edge-branch-label">
+              <span>choose next</span>
+              <button onClick={createContinuation}>+ path</button>
+              <button onClick={() => setLinkPickerOpen((value) => !value)}>link</button>
+            </div>
+            {outgoing.map(({ edge, node: nextNode }, index) => (
+              <button key={edge.id} onClick={() => navigateForward(nextNode.id)}>
+                <small>path {index + 1}</small>
+                <strong>{nextNode.title || 'Untitled'}</strong>
+              </button>
+            ))}
+          </div>
+        ) : outgoing.length > 1 ? (
+          <button className="note-edge-single note-edge-branch-trigger" onClick={() => setBranchOpen(true)}>
+            <span className="note-gate-ring" aria-hidden="true" />
+            <span className="note-edge-copy">
+              <small>{gate.direction === 'bottom' ? (gate.progress >= 1 ? 'release' : 'pull') : `${outgoing.length} paths`}</small>
+              <strong>Choose where the story goes</strong>
+            </span>
+            <span className="note-edge-arrow" />
+          </button>
+        ) : (
+          <div className="note-edge-empty">
+            <button className="note-create-path" onClick={createContinuation}>
+              <span>+</span>
+              <strong>Continue the story</strong>
+            </button>
+            <button className="note-link-path" onClick={() => setLinkPickerOpen((value) => !value)}>link existing</button>
+          </div>
+        )}
+
+        {linkPickerOpen && linkCandidates.length > 0 && (
+          <div className="note-link-picker">
+            <small>link this note to</small>
+            <div>
+              {linkCandidates.slice(0, 8).map((candidate) => (
+                <button key={candidate.id} onClick={() => connectExisting(candidate.id)}>
+                  {candidate.title || 'Untitled'}
                 </button>
               ))}
             </div>
-          ) : (
-            <button className="note-edge-single note-edge-branch-trigger" onClick={() => setBranchOpen(true)}>
-              <small>{outgoing.length} paths</small>
-              <strong>Choose where the story goes</strong>
-              <span className="note-edge-arrow" />
-            </button>
-          )}
-        </div>
-      )}
+          </div>
+        )}
+      </div>
     </section>
   );
 }

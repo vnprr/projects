@@ -390,7 +390,7 @@ export function NoteView() {
       </button>
 
       {previousNode && (
-        <div className={`note-edge note-edge-top ${edgeState.top || gate.direction === 'top' ? 'is-visible' : ''}`}>
+        <div className={`note-edge note-edge-top ${gate.direction === 'top' ? 'is-visible' : ''}`}>
           <button onClick={navigatePrevious}>
             <span className="note-gate-ring" aria-hidden="true" />
             <span className="note-edge-copy">
@@ -516,6 +516,7 @@ export function NoteView() {
               </span>
               <span className="note-edge-arrow" />
             </button>
+            <button className="note-path-add" onClick={createContinuation} aria-label="Add alternative path">+</button>
           </div>
         ) : outgoing.length > 1 && branchOpen ? (
           <div className="note-edge-branches">

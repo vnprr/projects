@@ -34,3 +34,43 @@
   .navigator-notes button{padding:9px 9px}
   .navigator-notes button.is-current::before{top:10px;bottom:10px}
 }
+
+
+/* UX audit: navigation is an index, not a glass card stack. */
+.navigator-panel{
+  background:#0a0b0e;
+  box-shadow:18px 0 54px rgba(0,0,0,.34);
+  backdrop-filter:none;
+  -webkit-backdrop-filter:none;
+}
+.navigator-scrim{background:rgba(0,0,0,.34)}
+.navigator-project{gap:10px}
+.navigator-project-mark{
+  width:8px;
+  height:8px;
+  border-radius:50%;
+  background:rgba(255,255,255,.34);
+  box-shadow:0 0 0 4px rgba(255,255,255,.025);
+}
+.navigator-notes button.is-current::before{display:none}
+.navigator-notes button.is-current{
+  background:transparent;
+  transform:translateX(2px);
+}
+.navigator-notes button.is-current .navigator-note-index{
+  color:rgba(255,255,255,.52);
+}
+.navigator-notes button.is-current .navigator-note-index::after{
+  content:"";
+  display:inline-block;
+  width:3px;
+  height:3px;
+  margin-left:5px;
+  border-radius:50%;
+  vertical-align:2px;
+  background:rgba(255,255,255,.52);
+}
+@media(max-width:640px){
+  .navigator-panel{width:min(318px,88vw)}
+  .navigator-scrim.is-open{opacity:1}
+}

@@ -108,25 +108,25 @@ function GraphCamera({ positions }: { positions: Record<string, GraphPosition> }
     if (!Object.keys(positions).length) return;
 
     const frame = requestAnimationFrame(() => {
-      if (!initialized.current) {
-        void fitView({ padding: 0.22, maxZoom: 0.72, duration: 0 });
-        initialized.current = true;
-        return;
-      }
-
-      if (!window.matchMedia('(max-width: 720px)').matches) return;
       const position = positions[state.currentNodeId];
       if (!position) return;
 
+      const compact = window.matchMedia('(max-width: 720px)').matches;
       const viewport = getViewport();
+      const targetZoom = initialized.current
+        ? Math.max(compact ? 0.68 : 0.72, viewport.zoom)
+        : (compact ? 0.72 : 0.78);
+
       void setCenter(position.x + 88, position.y + 34, {
-        zoom: Math.max(0.56, viewport.zoom),
-        duration: 420,
+        zoom: targetZoom,
+        duration: initialized.current ? 420 : 0,
       });
+
+      initialized.current = true;
     });
 
     return () => cancelAnimationFrame(frame);
-  }, [fitView, getViewport, positions, setCenter, state.currentNodeId]);
+  }, [getViewport, positions, setCenter, state.currentNodeId]);
 
   return null;
 }

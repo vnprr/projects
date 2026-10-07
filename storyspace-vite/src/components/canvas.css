@@ -165,3 +165,14 @@
   pointer-events:none;
 }
 
+
+.semantic-map-node::after{
+  content:"";
+  position:absolute;
+  inset:-10px;
+  border-radius:22px;
+  pointer-events:auto;
+}
+@media(max-width:640px){
+  .semantic-map-node::after{inset:-13px}
+}

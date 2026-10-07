@@ -67,24 +67,26 @@ function RoutedStoryEdge({
   data,
 }: EdgeProps<StoryGraphEdge>) {
   const vertical = Math.max(72, targetY - sourceY);
-  const sourceSpread = ((data?.sourceOrder ?? 0) - ((data?.sourceCount ?? 1) - 1) / 2) * 32;
-  const targetSpread = ((data?.targetOrder ?? 0) - ((data?.targetCount ?? 1) - 1) / 2) * 18;
-  const horizontalDistance = targetX - sourceX;
+  const sourceSpread = ((data?.sourceOrder ?? 0) - ((data?.sourceCount ?? 1) - 1) / 2) * 34;
+  const targetSpread = ((data?.targetOrder ?? 0) - ((data?.targetCount ?? 1) - 1) / 2) * 20;
+  const startX = sourceX + sourceSpread * 0.58;
+  const endX = targetX + targetSpread * 0.42;
+  const horizontalDistance = endX - startX;
 
   const corridorX =
-    sourceX +
+    startX +
     horizontalDistance * 0.5 +
-    sourceSpread -
-    targetSpread;
+    sourceSpread * 0.42 -
+    targetSpread * 0.34;
 
   const leaveY = sourceY + Math.min(88, vertical * 0.34);
   const enterY = targetY - Math.min(88, vertical * 0.34);
   const middleY = sourceY + vertical * 0.52;
 
   const path = [
-    `M ${sourceX} ${sourceY}`,
-    `C ${sourceX} ${leaveY}, ${corridorX} ${leaveY}, ${corridorX} ${middleY}`,
-    `C ${corridorX} ${enterY}, ${targetX} ${enterY}, ${targetX} ${targetY}`,
+    `M ${startX} ${sourceY}`,
+    `C ${startX} ${leaveY}, ${corridorX} ${leaveY}, ${corridorX} ${middleY}`,
+    `C ${corridorX} ${enterY}, ${endX} ${enterY}, ${endX} ${targetY}`,
   ].join(' ');
 
   return (
@@ -116,10 +118,11 @@ function GraphCamera({ positions }: { positions: Record<string, GraphPosition> }
       if (initialized.current && !compact) return;
 
       const viewport = getViewport();
+      const hasIncoming = project.edges.some((edge) => edge.to === state.currentNodeId);
       let targetZoom = compact ? 0.96 : 0.98;
       let centerX = position.x + 88;
       let centerY = position.y + 34;
-      let targetScreenY = window.innerHeight * (compact ? 0.32 : 0.36);
+      let targetScreenY = window.innerHeight * (hasIncoming ? (compact ? 0.32 : 0.36) : 0.24);
 
       if (compact) {
         const contextIds = new Set<string>([state.currentNodeId]);
@@ -131,8 +134,6 @@ function GraphCamera({ positions }: { positions: Record<string, GraphPosition> }
         const contextPositions = [...contextIds]
           .map((id) => positions[id])
           .filter((value): value is GraphPosition => Boolean(value));
-
-        const hasIncoming = project.edges.some((edge) => edge.to === state.currentNodeId);
 
         if (contextPositions.length >= 3 || (hasIncoming && contextPositions.length >= 2)) {
           const left = Math.min(...contextPositions.map((item) => item.x));
@@ -308,21 +309,12 @@ function CanvasInner() {
         preventScrolling
         proOptions={{ hideAttribution: true }}
         onNodeClick={(_, node) => {
-          const now = performance.now();
-          const previousTap = lastTap.current;
-          const alreadyCurrent = node.id === state.currentNodeId;
-
-          if (
-            alreadyCurrent &&
-            previousTap?.id === node.id &&
-            now - previousTap.at < 430
-          ) {
+          if (node.id === state.currentNodeId) {
             setLevel('note');
-          } else {
-            focusCanvasNode(node.id);
+            return;
           }
 
-          lastTap.current = { id: node.id, at: now };
+          focusCanvasNode(node.id);
         }}
         onNodeDoubleClick={(_, node) => {
           focusCanvasNode(node.id);

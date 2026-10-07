@@ -557,3 +557,21 @@
 }
 .edge-pull-bottom .note-top-shield{opacity:.98}
 
+
+/* Pulling backwards reveals navigation below the fixed chrome, never inside it. */
+.note-edge-top{
+  top:calc(var(--safe-top) + 50px);
+}
+.edge-pull-top .note-back{
+  opacity:0!important;
+  pointer-events:none;
+  transform:scale(.92);
+}
+.note-back{
+  transition:opacity .16s ease,transform .2s cubic-bezier(.18,.82,.18,1),background .18s ease;
+}
+@media(max-width:640px){
+  .note-edge-top{
+    top:calc(var(--safe-top) + 48px);
+  }
+}

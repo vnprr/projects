@@ -4,9 +4,8 @@ import type { NavigationLevel, NavigationState } from '../domain/types';
 
 const initialState: NavigationState = {
   currentNodeId: sampleProject.entryNodeId,
-  currentLevel: 'flow',
+  currentLevel: 'canvas',
   history: [],
-  branchIndex: 0,
   motion: 'idle',
 };
 
@@ -15,7 +14,6 @@ type NavigationContextValue = {
   goToNode: (nodeId: string) => void;
   goBack: () => void;
   setLevel: (level: NavigationLevel) => void;
-  setBranchIndex: (index: number) => void;
   focusCanvasNode: (nodeId: string) => void;
 };
 
@@ -31,7 +29,6 @@ export function NavigationProvider({ children }: PropsWithChildren) {
         ...current,
         currentNodeId: nodeId,
         history: [...current.history, current.currentNodeId].slice(-64),
-        branchIndex: 0,
         motion: 'forward',
       };
     });
@@ -45,7 +42,6 @@ export function NavigationProvider({ children }: PropsWithChildren) {
         ...current,
         currentNodeId: previous,
         history: current.history.slice(0, -1),
-        branchIndex: 0,
         motion: 'backward',
       };
     });
@@ -54,24 +50,23 @@ export function NavigationProvider({ children }: PropsWithChildren) {
   const setLevel = useCallback((level: NavigationLevel) => {
     setState((current) => {
       if (current.currentLevel === level) return current;
-      const order = { canvas: 0, flow: 1, note: 2 } as const;
       return {
         ...current,
         currentLevel: level,
-        motion: order[level] > order[current.currentLevel] ? 'zoom-in' : 'zoom-out',
+        motion: level === 'note' ? 'zoom-in' : 'zoom-out',
       };
     });
   }, []);
 
-  const setBranchIndex = useCallback((branchIndex: number) => {
-    setState((current) => ({ ...current, branchIndex }));
-  }, []);
-
   const focusCanvasNode = useCallback((currentNodeId: string) => {
-    setState((current) => ({ ...current, currentNodeId, branchIndex: 0, motion: 'idle' }));
+    setState((current) => ({ ...current, currentNodeId, motion: 'idle' }));
   }, []);
 
-  const value = useMemo(() => ({ state, goToNode, goBack, setLevel, setBranchIndex, focusCanvasNode }), [state, goToNode, goBack, setLevel, setBranchIndex, focusCanvasNode]);
+  const value = useMemo(
+    () => ({ state, goToNode, goBack, setLevel, focusCanvasNode }),
+    [state, goToNode, goBack, setLevel, focusCanvasNode],
+  );
+
   return <NavigationContext.Provider value={value}>{children}</NavigationContext.Provider>;
 }
 

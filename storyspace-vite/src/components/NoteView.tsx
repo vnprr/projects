@@ -113,9 +113,9 @@ export function NoteView() {
         if (!element) return;
 
         if (direction === 'previous') {
-          element.scrollTo({ top: element.scrollHeight, behavior: 'instant' });
+          element.scrollTo({ top: element.scrollHeight });
         } else {
-          element.scrollTo({ top: 0, behavior: 'instant' });
+          element.scrollTo({ top: 0 });
         }
 
         syncEdges();

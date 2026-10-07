@@ -132,7 +132,9 @@ function GraphCamera({ positions }: { positions: Record<string, GraphPosition> }
           .map((id) => positions[id])
           .filter((value): value is GraphPosition => Boolean(value));
 
-        if (contextPositions.length >= 3) {
+        const hasIncoming = project.edges.some((edge) => edge.to === state.currentNodeId);
+
+        if (contextPositions.length >= 3 || (hasIncoming && contextPositions.length >= 2)) {
           const left = Math.min(...contextPositions.map((item) => item.x));
           const right = Math.max(...contextPositions.map((item) => item.x + 176));
           const top = Math.min(...contextPositions.map((item) => item.y));
@@ -151,7 +153,7 @@ function GraphCamera({ positions }: { positions: Record<string, GraphPosition> }
 
           centerX = (left + right) / 2;
           centerY = (top + bottom) / 2;
-          targetScreenY = window.innerHeight * 0.47;
+          targetScreenY = window.innerHeight * 0.38;
         } else if (initialized.current) {
           targetZoom = Math.max(0.82, Math.min(0.96, viewport.zoom));
         }

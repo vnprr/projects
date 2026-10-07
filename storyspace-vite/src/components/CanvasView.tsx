@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Handle,
   Position,
@@ -13,7 +13,7 @@ import {
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import './canvas.css';
-import { layoutProjectTopDown } from '../domain/layout';
+import { layoutProjectTopDown, type GraphPosition } from '../domain/layout';
 import { useNavigation } from '../state/navigation';
 import { useProject } from '../state/project';
 
@@ -67,19 +67,18 @@ function RoutedStoryEdge({
   data,
 }: EdgeProps<StoryGraphEdge>) {
   const vertical = Math.max(72, targetY - sourceY);
-  const sourceSpread = ((data?.sourceOrder ?? 0) - ((data?.sourceCount ?? 1) - 1) / 2) * 34;
-  const targetSpread = ((data?.targetOrder ?? 0) - ((data?.targetCount ?? 1) - 1) / 2) * 20;
+  const sourceSpread = ((data?.sourceOrder ?? 0) - ((data?.sourceCount ?? 1) - 1) / 2) * 32;
+  const targetSpread = ((data?.targetOrder ?? 0) - ((data?.targetCount ?? 1) - 1) / 2) * 18;
   const horizontalDistance = targetX - sourceX;
 
   const corridorX =
     sourceX +
-    horizontalDistance * 0.52 +
+    horizontalDistance * 0.5 +
     sourceSpread -
-    targetSpread +
-    Math.sign(horizontalDistance || sourceSpread || 1) * Math.min(28, Math.abs(horizontalDistance) * 0.08);
+    targetSpread;
 
-  const leaveY = sourceY + Math.min(82, vertical * 0.34);
-  const enterY = targetY - Math.min(82, vertical * 0.34);
+  const leaveY = sourceY + Math.min(88, vertical * 0.34);
+  const enterY = targetY - Math.min(88, vertical * 0.34);
   const middleY = sourceY + vertical * 0.52;
 
   const path = [
@@ -100,12 +99,14 @@ function RoutedStoryEdge({
 const nodeTypes = { story: SemanticStoryNode };
 const edgeTypes = { routed: RoutedStoryEdge };
 
-function GraphCamera({ positions }: { positions: Record<string, { x: number; y: number }> }) {
+function GraphCamera({ positions }: { positions: Record<string, GraphPosition> }) {
   const { state } = useNavigation();
   const { fitView, getViewport, setCenter } = useReactFlow<StoryMapNode, StoryGraphEdge>();
   const initialized = useRef(false);
 
   useEffect(() => {
+    if (!Object.keys(positions).length) return;
+
     const frame = requestAnimationFrame(() => {
       if (!initialized.current) {
         void fitView({ padding: 0.22, maxZoom: 0.72, duration: 0 });
@@ -118,9 +119,9 @@ function GraphCamera({ positions }: { positions: Record<string, { x: number; y: 
       if (!position) return;
 
       const viewport = getViewport();
-      void setCenter(position.x + 88, position.y + 42, {
-        zoom: Math.max(0.58, viewport.zoom),
-        duration: 360,
+      void setCenter(position.x + 88, position.y + 34, {
+        zoom: Math.max(0.56, viewport.zoom),
+        duration: 420,
       });
     });
 
@@ -131,10 +132,35 @@ function GraphCamera({ positions }: { positions: Record<string, { x: number; y: 
 }
 
 function CanvasInner() {
-  const { project } = useProject();
+  const { project, createNodeAfter } = useProject();
   const { state, focusCanvasNode, setLevel } = useNavigation();
-  const positions = useMemo(() => layoutProjectTopDown(project), [project]);
+  const [positions, setPositions] = useState<Record<string, GraphPosition>>({});
+  const [layoutPending, setLayoutPending] = useState(true);
   const lastTap = useRef<{ id: string; at: number } | null>(null);
+
+  const topologyKey = useMemo(
+    () => [
+      ...project.nodes.map((node) => node.id),
+      '|',
+      ...project.edges.map((edge) => `${edge.id}:${edge.from}>${edge.to}`),
+    ].join(';'),
+    [project.edges, project.nodes],
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    setLayoutPending(true);
+
+    void layoutProjectTopDown(project).then((next) => {
+      if (cancelled) return;
+      setPositions(next);
+      setLayoutPending(false);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [project, topologyKey]);
 
   const nodes = useMemo<StoryMapNode[]>(() => project.nodes.map((node) => ({
     id: node.id,
@@ -207,9 +233,16 @@ function CanvasInner() {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [setLevel]);
 
+  const addContinuation = () => {
+    const created = createNodeAfter(state.currentNodeId);
+    focusCanvasNode(created.id);
+    setLevel('note');
+  };
+
   return (
-    <section className="scene canvas-scene graph-mode-canvas">
+    <section className={`scene canvas-scene graph-mode-canvas ${layoutPending ? 'is-layout-pending' : ''}`}>
       <div className="canvas-label"><span>{project.title}</span><small>graph</small></div>
+
       <ReactFlow<StoryMapNode, StoryGraphEdge>
         nodes={nodes}
         edges={edges}
@@ -254,8 +287,13 @@ function CanvasInner() {
         <GraphCamera positions={positions} />
       </ReactFlow>
 
+      <button className="graph-add" onClick={addContinuation} aria-label="Add continuation">
+        <span>+</span>
+        <em>continuation</em>
+      </button>
+
       <div className="canvas-hint">
-        drag to explore · scroll / pinch to zoom · tap a node, tap again to write
+        drag · scroll / pinch to zoom · tap node · tap again to write
       </div>
     </section>
   );

@@ -101,6 +101,7 @@ const edgeTypes = { routed: RoutedStoryEdge };
 
 function GraphCamera({ positions }: { positions: Record<string, GraphPosition> }) {
   const { state } = useNavigation();
+  const { project } = useProject();
   const { getViewport, setViewport } = useReactFlow<StoryMapNode, StoryGraphEdge>();
   const initialized = useRef(false);
 
@@ -115,13 +116,46 @@ function GraphCamera({ positions }: { positions: Record<string, GraphPosition> }
       if (initialized.current && !compact) return;
 
       const viewport = getViewport();
-      const targetZoom = initialized.current
-        ? Math.max(0.82, viewport.zoom)
-        : (compact ? 0.96 : 0.98);
+      let targetZoom = compact ? 0.96 : 0.98;
+      let centerX = position.x + 88;
+      let centerY = position.y + 34;
+      let targetScreenY = window.innerHeight * (compact ? 0.32 : 0.36);
 
-      const centerX = position.x + 88;
-      const centerY = position.y + 34;
-      const targetScreenY = window.innerHeight * (compact ? 0.32 : 0.36);
+      if (compact) {
+        const contextIds = new Set<string>([state.currentNodeId]);
+        project.edges.forEach((edge) => {
+          if (edge.from === state.currentNodeId) contextIds.add(edge.to);
+          if (edge.to === state.currentNodeId) contextIds.add(edge.from);
+        });
+
+        const contextPositions = [...contextIds]
+          .map((id) => positions[id])
+          .filter((value): value is GraphPosition => Boolean(value));
+
+        if (contextPositions.length >= 3) {
+          const left = Math.min(...contextPositions.map((item) => item.x));
+          const right = Math.max(...contextPositions.map((item) => item.x + 176));
+          const top = Math.min(...contextPositions.map((item) => item.y));
+          const bottom = Math.max(...contextPositions.map((item) => item.y + 68));
+          const spanWidth = Math.max(176, right - left);
+          const spanHeight = Math.max(68, bottom - top);
+
+          targetZoom = Math.max(
+            0.54,
+            Math.min(
+              0.96,
+              (window.innerWidth - 42) / spanWidth,
+              (window.innerHeight * 0.67) / spanHeight,
+            ),
+          );
+
+          centerX = (left + right) / 2;
+          centerY = (top + bottom) / 2;
+          targetScreenY = window.innerHeight * 0.47;
+        } else if (initialized.current) {
+          targetZoom = Math.max(0.82, Math.min(0.96, viewport.zoom));
+        }
+      }
 
       void setViewport({
         x: window.innerWidth * 0.5 - centerX * targetZoom,
@@ -135,7 +169,7 @@ function GraphCamera({ positions }: { positions: Record<string, GraphPosition> }
     });
 
     return () => cancelAnimationFrame(frame);
-  }, [getViewport, positions, setViewport, state.currentNodeId]);
+  }, [getViewport, positions, project.edges, setViewport, state.currentNodeId]);
 
   return null;
 }

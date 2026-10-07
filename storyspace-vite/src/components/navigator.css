@@ -4,3 +4,33 @@
 .navigator-section-head{display:flex;justify-content:space-between;align-items:center;margin:20px 9px 8px;padding-top:13px;border-top:1px solid rgba(255,255,255,.045)}.navigator-section-head span{color:rgba(255,255,255,.28);font-size:9px;letter-spacing:.14em;text-transform:uppercase}.navigator-section-head small{color:rgba(255,255,255,.17);font-size:9px}.navigator-notes{height:calc(100% - 92px);overflow:auto;padding-right:2px;scrollbar-width:none}.navigator-notes::-webkit-scrollbar{display:none}.navigator-notes button{width:100%;display:grid;grid-template-columns:28px 1fr;gap:7px;align-items:start;padding:10px 9px;appearance:none;border:0;border-radius:12px;background:transparent;text-align:left;transition:background .15s ease,transform .15s ease}.navigator-notes button:hover{background:rgba(255,255,255,.026)}.navigator-notes button.is-current{background:rgba(255,255,255,.048)}.navigator-note-index{padding-top:2px;color:rgba(255,255,255,.16);font:500 9px/1 ui-monospace,SFMono-Regular,Menlo,monospace}.navigator-notes button.is-current .navigator-note-index{color:rgba(255,255,255,.44)}.navigator-note-copy strong,.navigator-note-copy small{display:block}.navigator-note-copy strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:rgba(255,255,255,.7);font-size:12px;font-weight:520}.navigator-note-copy small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:4px;color:rgba(255,255,255,.24);font:400 10px/1.25 Georgia,"Times New Roman",serif}.navigator-notes button.is-current .navigator-note-copy strong{color:rgba(255,255,255,.92)}
 @media(min-width:761px){.navigator-scrim{background:transparent;max-width:330px}}
 @media(max-width:640px){.navigator-toggle{top:calc(var(--safe-top) + 4px);left:calc(var(--safe-left) + 5px);width:36px;height:36px}.navigator-panel{width:min(312px,88vw);padding-top:calc(var(--safe-top) + 54px)}}
+\n
+/* Quiet index selection: no nested-card dashboard feel. */
+.navigator-notes button{
+  position:relative;
+  border-radius:8px;
+}
+.navigator-notes button.is-current{
+  background:transparent;
+}
+.navigator-notes button.is-current::before{
+  content:"";
+  position:absolute;
+  left:1px;
+  top:12px;
+  bottom:12px;
+  width:2px;
+  border-radius:99px;
+  background:rgba(255,255,255,.58);
+  box-shadow:0 0 14px rgba(255,255,255,.08);
+}
+.navigator-notes button.is-current .navigator-note-copy strong{
+  color:rgba(255,255,255,.94);
+}
+.navigator-notes button.is-current .navigator-note-copy small{
+  color:rgba(255,255,255,.3);
+}
+@media(max-width:640px){
+  .navigator-notes button{padding:9px 9px}
+  .navigator-notes button.is-current::before{top:10px;bottom:10px}
+}

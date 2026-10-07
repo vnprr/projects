@@ -147,7 +147,8 @@ export function ProjectProvider({ children }: PropsWithChildren) {
     const current = workspaceRef.current;
     const project = current.projects.find((item) => item.id === current.currentProjectId);
     if (!project) return null;
-    if (!project.nodes.some((node) => node.id === fromNodeId || node.id === toNodeId)) return null;
+    if (!project.nodes.some((node) => node.id === fromNodeId)) return null;
+    if (!project.nodes.some((node) => node.id === toNodeId)) return null;
     if (project.edges.some((edge) => edge.from === fromNodeId && edge.to === toNodeId)) return null;
 
     const outgoingCount = project.edges.filter((edge) => edge.from === fromNodeId).length;

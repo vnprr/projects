@@ -10,7 +10,7 @@ type EdgeDirection = 'top' | 'bottom' | null;
 
 type WheelSession = {
   active: boolean;
-  edge: 'top' | 'bottom' | 'middle';
+  edge: EdgeDirection;
   pull: number;
 };
 
@@ -22,8 +22,9 @@ type TouchSession = {
   pull: number;
 };
 
-const EDGE_THRESHOLD = 148;
-const TOUCH_THRESHOLD = 112;
+const WHEEL_THRESHOLD = 172;
+const TOUCH_THRESHOLD = 104;
+const WHEEL_GAP_MS = 150;
 
 function clamp01(value: number) {
   return Math.min(1, Math.max(0, value));
@@ -33,21 +34,22 @@ export function NoteView() {
   const { project, updateNodeContent } = useProject();
   const { state, setLevel, goToNode, goBack } = useNavigation();
   const node = project.nodes.find((item) => item.id === state.currentNodeId) ?? project.nodes[0]!;
+
   const [title, setTitle] = useState(node.title);
   const [text, setText] = useState(node.text);
   const [phase, setPhase] = useState<Phase>('idle');
   const [travelDirection, setTravelDirection] = useState<TravelDirection>('next');
   const [edgeState, setEdgeState] = useState({ top: true, bottom: false });
-  const [edgePull, setEdgePull] = useState<{ direction: EdgeDirection; progress: number }>({ direction: null, progress: 0 });
+  const [gate, setGate] = useState<{ direction: EdgeDirection; progress: number }>({ direction: null, progress: 0 });
   const [branchOpen, setBranchOpen] = useState(false);
 
   const textRef = useRef<HTMLTextAreaElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const latest = useRef({ nodeId: node.id, title: node.title, text: node.text });
   const transitionTimers = useRef<number[]>([]);
-  const wheelSession = useRef<WheelSession>({ active: false, edge: 'middle', pull: 0 });
+  const wheelSession = useRef<WheelSession>({ active: false, edge: null, pull: 0 });
   const wheelEndTimer = useRef<number | null>(null);
-  const wheelBlockedUntilRelease = useRef(false);
+  const wheelLockUntil = useRef(0);
   const touchSession = useRef<TouchSession | null>(null);
   const enterFromRef = useRef<TravelDirection>('next');
 
@@ -75,6 +77,7 @@ export function NoteView() {
   const readEdges = useCallback(() => {
     const element = scrollRef.current;
     if (!element) return { top: true, bottom: true };
+
     return {
       top: element.scrollTop <= 2,
       bottom: element.scrollTop + element.clientHeight >= element.scrollHeight - 2,
@@ -83,12 +86,15 @@ export function NoteView() {
 
   const syncEdges = useCallback(() => {
     const next = readEdges();
-    setEdgeState((current) => current.top === next.top && current.bottom === next.bottom ? current : next);
+    setEdgeState((current) => (
+      current.top === next.top && current.bottom === next.bottom ? current : next
+    ));
+
     if (!next.bottom) setBranchOpen(false);
   }, [readEdges]);
 
-  const resetEdgePull = useCallback(() => {
-    setEdgePull({ direction: null, progress: 0 });
+  const resetGate = useCallback(() => {
+    setGate({ direction: null, progress: 0 });
   }, []);
 
   useLayoutEffect(() => {
@@ -96,8 +102,8 @@ export function NoteView() {
     setText(node.text);
     latest.current = { nodeId: node.id, title: node.title, text: node.text };
     setBranchOpen(false);
-    resetEdgePull();
-    wheelSession.current = { active: false, edge: 'middle', pull: 0 };
+    resetGate();
+    wheelSession.current = { active: false, edge: null, pull: 0 };
     touchSession.current = null;
 
     const direction = enterFromRef.current;
@@ -105,8 +111,13 @@ export function NoteView() {
       requestAnimationFrame(() => {
         const element = scrollRef.current;
         if (!element) return;
-        if (direction === 'previous') element.scrollTo({ top: element.scrollHeight });
-        else element.scrollTo({ top: 0 });
+
+        if (direction === 'previous') {
+          element.scrollTo({ top: element.scrollHeight, behavior: 'instant' });
+        } else {
+          element.scrollTo({ top: 0, behavior: 'instant' });
+        }
+
         syncEdges();
       });
     });
@@ -117,8 +128,9 @@ export function NoteView() {
   useLayoutEffect(() => {
     const textarea = textRef.current;
     if (!textarea) return;
+
     textarea.style.height = '0px';
-    textarea.style.height = `${Math.max(180, textarea.scrollHeight)}px`;
+    textarea.style.height = `${Math.max(150, textarea.scrollHeight)}px`;
     requestAnimationFrame(syncEdges);
   }, [node.id, syncEdges, text]);
 
@@ -132,8 +144,10 @@ export function NoteView() {
     const onVisibilityChange = () => {
       if (document.visibilityState === 'hidden') flush();
     };
+
     window.addEventListener('pagehide', flush);
     document.addEventListener('visibilitychange', onVisibilityChange);
+
     return () => {
       window.removeEventListener('pagehide', flush);
       document.removeEventListener('visibilitychange', onVisibilityChange);
@@ -143,8 +157,9 @@ export function NoteView() {
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setLevel('flow');
+      if (event.key === 'Escape') setLevel('canvas');
     };
+
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [setLevel]);
@@ -156,22 +171,30 @@ export function NoteView() {
 
   const startTransition = useCallback((direction: TravelDirection, action: () => void) => {
     if (phase !== 'idle') return;
+
     flush();
     setTravelDirection(direction);
     setPhase('leaving');
     setBranchOpen(false);
-    resetEdgePull();
-    wheelBlockedUntilRelease.current = true;
+    resetGate();
+    wheelSession.current = { active: false, edge: null, pull: 0 };
+    wheelLockUntil.current = performance.now() + 520;
     enterFromRef.current = direction;
 
     const leave = window.setTimeout(() => {
       action();
       setPhase('entering');
-      const enter = window.setTimeout(() => setPhase('idle'), 320);
+
+      const enter = window.setTimeout(() => {
+        setPhase('idle');
+        wheelLockUntil.current = performance.now() + 180;
+      }, 300);
+
       transitionTimers.current.push(enter);
-    }, 150);
+    }, 170);
+
     transitionTimers.current.push(leave);
-  }, [flush, phase, resetEdgePull]);
+  }, [flush, phase, resetGate]);
 
   const navigateForward = useCallback((nodeId: string) => {
     startTransition('next', () => goToNode(nodeId));
@@ -179,6 +202,7 @@ export function NoteView() {
 
   const navigatePrevious = useCallback(() => {
     if (!previousNode) return;
+
     const canUseHistory = state.history.at(-1) === previousNode.id;
     startTransition('previous', () => {
       if (canUseHistory) goBack();
@@ -186,24 +210,53 @@ export function NoteView() {
     });
   }, [goBack, goToNode, previousNode, startTransition, state.history]);
 
-  const finishWheelSessionSoon = () => {
-    if (wheelEndTimer.current) window.clearTimeout(wheelEndTimer.current);
-    wheelEndTimer.current = window.setTimeout(() => {
-      wheelSession.current = { active: false, edge: 'middle', pull: 0 };
-      wheelBlockedUntilRelease.current = false;
-      resetEdgePull();
-      wheelEndTimer.current = null;
-    }, 180);
-  };
-
-  const handleEdgeWheel = (event: React.WheelEvent<HTMLDivElement>) => {
-    if (phase !== 'idle') {
-      event.preventDefault();
-      finishWheelSessionSoon();
+  const resolveBottomGate = useCallback((progress: number) => {
+    if (progress < 1) {
+      resetGate();
       return;
     }
 
-    if (wheelBlockedUntilRelease.current) {
+    if (soleNext) {
+      navigateForward(soleNext.id);
+      return;
+    }
+
+    if (outgoing.length > 1) {
+      setBranchOpen(true);
+      resetGate();
+      return;
+    }
+
+    resetGate();
+  }, [navigateForward, outgoing.length, resetGate, soleNext]);
+
+  const resolveTopGate = useCallback((progress: number) => {
+    if (progress >= 1 && previousNode) navigatePrevious();
+    else resetGate();
+  }, [navigatePrevious, previousNode, resetGate]);
+
+  const finishWheelSessionSoon = useCallback(() => {
+    if (wheelEndTimer.current) window.clearTimeout(wheelEndTimer.current);
+
+    wheelEndTimer.current = window.setTimeout(() => {
+      const session = wheelSession.current;
+      wheelSession.current = { active: false, edge: null, pull: 0 };
+      wheelEndTimer.current = null;
+
+      if (phase !== 'idle') {
+        resetGate();
+        return;
+      }
+
+      const progress = clamp01(session.pull / WHEEL_THRESHOLD);
+      if (session.edge === 'bottom') resolveBottomGate(progress);
+      else if (session.edge === 'top') resolveTopGate(progress);
+      else resetGate();
+    }, WHEEL_GAP_MS);
+  }, [phase, resetGate, resolveBottomGate, resolveTopGate]);
+
+  const handleWheel = (event: React.WheelEvent<HTMLDivElement>) => {
+    if (performance.now() < wheelLockUntil.current || phase !== 'idle') {
       event.preventDefault();
       finishWheelSessionSoon();
       return;
@@ -211,66 +264,72 @@ export function NoteView() {
 
     if (!wheelSession.current.active) {
       const edges = readEdges();
-      const edge = event.deltaY < 0 && edges.top
-        ? 'top'
-        : event.deltaY > 0 && edges.bottom
+      const edge: EdgeDirection =
+        event.deltaY > 0 && edges.bottom && outgoing.length > 0
           ? 'bottom'
-          : 'middle';
+          : event.deltaY < 0 && edges.top && previousNode
+            ? 'top'
+            : null;
+
       wheelSession.current = { active: true, edge, pull: 0 };
     }
 
     const session = wheelSession.current;
-    finishWheelSessionSoon();
 
     if (session.edge === 'bottom' && event.deltaY > 0) {
       event.preventDefault();
-      session.pull += event.deltaY;
-      const progress = clamp01(session.pull / EDGE_THRESHOLD);
-      setEdgePull({ direction: 'bottom', progress });
-
-      if (outgoing.length > 1) {
-        if (progress > 0.58) setBranchOpen(true);
-        return;
-      }
-
-      if (soleNext && session.pull >= EDGE_THRESHOLD) navigateForward(soleNext.id);
-      return;
-    }
-
-    if (session.edge === 'top' && event.deltaY < 0 && previousNode) {
+      session.pull += Math.min(54, Math.abs(event.deltaY));
+      setGate({
+        direction: 'bottom',
+        progress: clamp01(session.pull / WHEEL_THRESHOLD),
+      });
+    } else if (session.edge === 'top' && event.deltaY < 0) {
       event.preventDefault();
-      session.pull += -event.deltaY;
-      const progress = clamp01(session.pull / EDGE_THRESHOLD);
-      setEdgePull({ direction: 'top', progress });
-      if (session.pull >= EDGE_THRESHOLD) navigatePrevious();
+      session.pull += Math.min(54, Math.abs(event.deltaY));
+      setGate({
+        direction: 'top',
+        progress: clamp01(session.pull / WHEEL_THRESHOLD),
+      });
     }
+
+    finishWheelSessionSoon();
   };
 
-  const pinch = usePinch({ onZoomOut: () => setLevel('flow') });
-  const signedPull = edgePull.direction === 'bottom'
-    ? -edgePull.progress * 14
-    : edgePull.direction === 'top'
-      ? edgePull.progress * 14
+  const pinch = usePinch({ onZoomOut: () => setLevel('canvas') });
+  const easedPull = 1 - Math.pow(1 - gate.progress, 2.2);
+  const signedPull = gate.direction === 'bottom'
+    ? -easedPull * 54
+    : gate.direction === 'top'
+      ? easedPull * 54
       : 0;
 
-  const edgeStyle = {
+  const sceneStyle = {
     '--note-pull-offset': `${signedPull}px`,
-    '--note-pull-progress': String(edgePull.progress),
+    '--note-pull-progress': String(gate.progress),
   } as CSSProperties;
 
   return (
     <section
-      className={`scene note-scene note-travel-${travelDirection} edge-pull-${edgePull.direction ?? 'none'}`}
-      style={edgeStyle}
+      className={`scene note-scene note-travel-${travelDirection} edge-pull-${gate.direction ?? 'none'}`}
+      style={sceneStyle}
       {...pinch}
     >
-      <button className="note-back" onClick={() => { flush(); setLevel('flow'); }} aria-label="Back to focused graph"><span /></button>
+      <button
+        className="note-back"
+        onClick={() => {
+          flush();
+          setLevel('canvas');
+        }}
+        aria-label="Back to graph"
+      >
+        <span />
+      </button>
 
       {previousNode && (
-        <div className={`note-edge note-edge-top ${edgeState.top ? 'is-visible' : ''}`}>
+        <div className={`note-edge note-edge-top ${edgeState.top || gate.direction === 'top' ? 'is-visible' : ''}`}>
           <button onClick={navigatePrevious}>
             <small>previous</small>
-            <strong>{previousNode.title}</strong>
+            <strong>{previousNode.title || 'Untitled'}</strong>
           </button>
         </div>
       )}
@@ -279,11 +338,12 @@ export function NoteView() {
         ref={scrollRef}
         className={`note-scroll note-phase-${phase}`}
         onScroll={syncEdges}
-        onWheel={handleEdgeWheel}
+        onWheel={handleWheel}
         onTouchStartCapture={(event) => {
-          if (event.touches.length !== 1) return;
+          if (event.touches.length !== 1 || phase !== 'idle') return;
           const touch = event.touches.item(0);
           if (!touch) return;
+
           const edges = readEdges();
           touchSession.current = {
             startY: touch.clientY,
@@ -297,15 +357,17 @@ export function NoteView() {
           const touch = event.touches.item(0);
           const gesture = touchSession.current;
           if (!touch || !gesture || phase !== 'idle') return;
+
           const dy = touch.clientY - gesture.startY;
 
           if (gesture.atBottom && dy < 0 && outgoing.length > 0) {
             event.preventDefault();
             gesture.direction = 'bottom';
             gesture.pull = -dy;
-            const progress = clamp01(gesture.pull / TOUCH_THRESHOLD);
-            setEdgePull({ direction: 'bottom', progress });
-            if (outgoing.length > 1 && progress > 0.55) setBranchOpen(true);
+            setGate({
+              direction: 'bottom',
+              progress: clamp01(gesture.pull / TOUCH_THRESHOLD),
+            });
             return;
           }
 
@@ -313,34 +375,29 @@ export function NoteView() {
             event.preventDefault();
             gesture.direction = 'top';
             gesture.pull = dy;
-            setEdgePull({ direction: 'top', progress: clamp01(gesture.pull / TOUCH_THRESHOLD) });
+            setGate({
+              direction: 'top',
+              progress: clamp01(gesture.pull / TOUCH_THRESHOLD),
+            });
           }
         }}
         onTouchEndCapture={() => {
           const gesture = touchSession.current;
           touchSession.current = null;
+
           if (!gesture || phase !== 'idle') {
-            resetEdgePull();
+            resetGate();
             return;
           }
 
-          if (gesture.direction === 'bottom' && gesture.pull >= TOUCH_THRESHOLD) {
-            if (soleNext) navigateForward(soleNext.id);
-            else if (outgoing.length > 1) setBranchOpen(true);
-            else resetEdgePull();
-            return;
-          }
-
-          if (gesture.direction === 'top' && gesture.pull >= TOUCH_THRESHOLD && previousNode) {
-            navigatePrevious();
-            return;
-          }
-
-          resetEdgePull();
+          const progress = clamp01(gesture.pull / TOUCH_THRESHOLD);
+          if (gesture.direction === 'bottom') resolveBottomGate(progress);
+          else if (gesture.direction === 'top') resolveTopGate(progress);
+          else resetGate();
         }}
         onTouchCancelCapture={() => {
           touchSession.current = null;
-          resetEdgePull();
+          resetGate();
         }}
       >
         <div className="note-document" key={node.id}>
@@ -361,6 +418,7 @@ export function NoteView() {
               spellCheck
               aria-label="Note title"
             />
+
             <textarea
               ref={textRef}
               className="note-body"
@@ -377,23 +435,37 @@ export function NoteView() {
       </div>
 
       {outgoing.length > 0 && (
-        <div className={`note-edge note-edge-bottom ${edgeState.bottom ? 'is-visible' : ''} ${outgoing.length > 1 ? 'has-branches' : ''} ${branchOpen ? 'is-open' : ''}`}>
+        <div
+          className={[
+            'note-edge',
+            'note-edge-bottom',
+            edgeState.bottom || gate.direction === 'bottom' ? 'is-visible' : '',
+            outgoing.length > 1 ? 'has-branches' : '',
+            branchOpen ? 'is-open' : '',
+          ].filter(Boolean).join(' ')}
+        >
           {soleNext ? (
             <button className="note-edge-single" onClick={() => navigateForward(soleNext.id)}>
               <small>next</small>
-              <strong>{soleNext.title}</strong>
+              <strong>{soleNext.title || 'Untitled'}</strong>
               <span className="note-edge-arrow" />
             </button>
-          ) : (
+          ) : branchOpen ? (
             <div className="note-edge-branches">
               <div className="note-edge-branch-label">choose next</div>
               {outgoing.map(({ edge, node: nextNode }, index) => (
                 <button key={edge.id} onClick={() => navigateForward(nextNode.id)}>
                   <small>path {index + 1}</small>
-                  <strong>{nextNode.title}</strong>
+                  <strong>{nextNode.title || 'Untitled'}</strong>
                 </button>
               ))}
             </div>
+          ) : (
+            <button className="note-edge-single note-edge-branch-trigger" onClick={() => setBranchOpen(true)}>
+              <small>{outgoing.length} paths</small>
+              <strong>Choose where the story goes</strong>
+              <span className="note-edge-arrow" />
+            </button>
           )}
         </div>
       )}

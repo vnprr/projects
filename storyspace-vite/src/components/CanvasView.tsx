@@ -7,6 +7,7 @@ import {
   useReactFlow,
   useViewport,
   type Edge,
+  type EdgeProps,
   type Node,
   type NodeProps,
 } from '@xyflow/react';
@@ -16,151 +17,211 @@ import { layoutProjectTopDown } from '../domain/layout';
 import { useNavigation } from '../state/navigation';
 import { useProject } from '../state/project';
 
-type GraphMode = 'canvas' | 'flow';
-
 type StoryMapData = {
   title: string;
   text: string;
   current: boolean;
-  context: boolean;
   branch: boolean;
-  mode: GraphMode;
+};
+
+type RoutedEdgeData = {
+  sourceOrder: number;
+  sourceCount: number;
+  targetOrder: number;
+  targetCount: number;
+  branch: boolean;
 };
 
 type StoryMapNode = Node<StoryMapData, 'story'>;
+type StoryGraphEdge = Edge<RoutedEdgeData, 'routed'>;
 
 function SemanticStoryNode({ data }: NodeProps<StoryMapNode>) {
   const { zoom } = useViewport();
-  const canvasTitle = zoom >= 0.46;
-  const canvasDetail = zoom >= 0.96;
-  const showTitle = data.mode === 'flow' ? data.current || data.context : canvasTitle;
-  const showText = data.mode === 'flow' ? data.current : canvasDetail;
+  const showTitle = data.current || zoom >= 0.43;
+  const showText = zoom >= 0.94;
 
   return (
     <div
       className={[
         'semantic-map-node',
-        `mode-${data.mode}`,
         showTitle ? 'shows-title' : '',
         showText ? 'shows-text' : '',
         data.current ? 'is-current' : '',
-        data.context ? 'is-context' : '',
         data.branch ? 'is-branch' : '',
       ].filter(Boolean).join(' ')}
     >
       <Handle type="target" position={Position.Top} />
       <span className="semantic-map-node-mark" />
-      {showTitle && <strong>{data.title}</strong>}
-      {showText && <p>{data.text.slice(0, 128)}</p>}
+      {showTitle && <strong>{data.title || 'Untitled'}</strong>}
+      {showText && data.text.trim() && <p>{data.text.trim().slice(0, 118)}</p>}
       <Handle type="source" position={Position.Bottom} />
     </div>
   );
 }
 
-const nodeTypes = { story: SemanticStoryNode };
+function RoutedStoryEdge({
+  sourceX,
+  sourceY,
+  targetX,
+  targetY,
+  data,
+}: EdgeProps<StoryGraphEdge>) {
+  const vertical = Math.max(72, targetY - sourceY);
+  const sourceSpread = ((data?.sourceOrder ?? 0) - ((data?.sourceCount ?? 1) - 1) / 2) * 34;
+  const targetSpread = ((data?.targetOrder ?? 0) - ((data?.targetCount ?? 1) - 1) / 2) * 20;
+  const horizontalDistance = targetX - sourceX;
 
-function GraphCamera({ mode, positions }: { mode: GraphMode; positions: Record<string, { x: number; y: number }> }) {
+  const corridorX =
+    sourceX +
+    horizontalDistance * 0.52 +
+    sourceSpread -
+    targetSpread +
+    Math.sign(horizontalDistance || sourceSpread || 1) * Math.min(28, Math.abs(horizontalDistance) * 0.08);
+
+  const leaveY = sourceY + Math.min(82, vertical * 0.34);
+  const enterY = targetY - Math.min(82, vertical * 0.34);
+  const middleY = sourceY + vertical * 0.52;
+
+  const path = [
+    `M ${sourceX} ${sourceY}`,
+    `C ${sourceX} ${leaveY}, ${corridorX} ${leaveY}, ${corridorX} ${middleY}`,
+    `C ${corridorX} ${enterY}, ${targetX} ${enterY}, ${targetX} ${targetY}`,
+  ].join(' ');
+
+  return (
+    <path
+      className={`react-flow__edge-path story-routed-path ${data?.branch ? 'is-branch-path' : ''}`}
+      d={path}
+      fill="none"
+    />
+  );
+}
+
+const nodeTypes = { story: SemanticStoryNode };
+const edgeTypes = { routed: RoutedStoryEdge };
+
+function GraphCamera({ positions }: { positions: Record<string, { x: number; y: number }> }) {
   const { state } = useNavigation();
-  const { setCenter, fitView } = useReactFlow<StoryMapNode>();
+  const { fitView, getViewport, setCenter } = useReactFlow<StoryMapNode, StoryGraphEdge>();
   const initialized = useRef(false);
 
   useEffect(() => {
     const frame = requestAnimationFrame(() => {
-      if (mode === 'canvas') {
-        void fitView({
-          padding: 0.24,
-          maxZoom: 0.66,
-          duration: initialized.current ? 520 : 0,
-        });
+      if (!initialized.current) {
+        void fitView({ padding: 0.22, maxZoom: 0.72, duration: 0 });
         initialized.current = true;
         return;
       }
 
+      if (!window.matchMedia('(max-width: 720px)').matches) return;
       const position = positions[state.currentNodeId];
       if (!position) return;
-      const compact = window.matchMedia('(max-width: 640px)').matches;
-      const width = compact ? 222 : 238;
-      const height = compact ? 108 : 116;
-      void setCenter(position.x + width / 2, position.y + height / 2, {
-        zoom: compact ? 0.78 : 0.9,
-        duration: initialized.current ? 520 : 0,
+
+      const viewport = getViewport();
+      void setCenter(position.x + 88, position.y + 42, {
+        zoom: Math.max(0.58, viewport.zoom),
+        duration: 360,
       });
-      initialized.current = true;
     });
 
     return () => cancelAnimationFrame(frame);
-  }, [fitView, mode, positions, setCenter, state.currentNodeId]);
+  }, [fitView, getViewport, positions, setCenter, state.currentNodeId]);
 
   return null;
 }
 
-function CanvasInner({ mode }: { mode: GraphMode }) {
+function CanvasInner() {
   const { project } = useProject();
   const { state, focusCanvasNode, setLevel } = useNavigation();
   const positions = useMemo(() => layoutProjectTopDown(project), [project]);
+  const lastTap = useRef<{ id: string; at: number } | null>(null);
 
-  const contextIds = useMemo(() => {
-    const ids = new Set<string>();
-    project.edges.forEach((edge) => {
-      if (edge.from === state.currentNodeId) ids.add(edge.to);
-      if (edge.to === state.currentNodeId) ids.add(edge.from);
-    });
-    return ids;
-  }, [project.edges, state.currentNodeId]);
+  const nodes = useMemo<StoryMapNode[]>(() => project.nodes.map((node) => ({
+    id: node.id,
+    type: 'story',
+    position: positions[node.id] ?? { x: 0, y: 0 },
+    draggable: false,
+    selectable: false,
+    focusable: false,
+    zIndex: node.id === state.currentNodeId ? 3 : 1,
+    data: {
+      title: node.title,
+      text: node.text,
+      current: node.id === state.currentNodeId,
+      branch: project.edges.filter((edge) => edge.from === node.id).length > 1,
+    },
+    className: 'story-map-node',
+  })), [positions, project.edges, project.nodes, state.currentNodeId]);
 
-  const nodes = useMemo<StoryMapNode[]>(() => project.nodes.map((node) => {
-    const current = node.id === state.currentNodeId;
-    const context = contextIds.has(node.id);
-    return {
-      id: node.id,
-      type: 'story',
-      position: positions[node.id] ?? { x: 0, y: 0 },
-      draggable: false,
-      selectable: false,
-      focusable: false,
-      zIndex: current ? 4 : context ? 2 : 0,
-      data: {
-        title: node.title,
-        text: node.text,
-        current,
-        context,
-        branch: project.edges.filter((edge) => edge.from === node.id).length > 1,
-        mode,
-      },
-      className: `story-map-node ${mode === 'flow' && !current && !context ? 'is-distant' : ''}`,
-    };
-  }), [contextIds, mode, positions, project.edges, project.nodes, state.currentNodeId]);
+  const outgoing = useMemo(() => {
+    const groups = new Map<string, typeof project.edges>();
+    for (const edge of project.edges) {
+      const list = groups.get(edge.from) ?? [];
+      list.push(edge);
+      groups.set(edge.from, list);
+    }
+    return groups;
+  }, [project.edges]);
 
-  const edges = useMemo<Edge[]>(() => project.edges.map((edge) => {
-    const contextual = edge.from === state.currentNodeId || edge.to === state.currentNodeId;
+  const incoming = useMemo(() => {
+    const groups = new Map<string, typeof project.edges>();
+    for (const edge of project.edges) {
+      const list = groups.get(edge.to) ?? [];
+      list.push(edge);
+      groups.set(edge.to, list);
+    }
+    return groups;
+  }, [project.edges]);
+
+  const edges = useMemo<StoryGraphEdge[]>(() => project.edges.map((edge) => {
+    const sourceEdges = outgoing.get(edge.from) ?? [];
+    const targetEdges = incoming.get(edge.to) ?? [];
+
     return {
       id: edge.id,
       source: edge.from,
       target: edge.to,
-      type: 'bezier',
+      type: 'routed',
       focusable: false,
-      className: [
-        'story-edge',
-        edge.type === 'branch' ? 'is-branch' : '',
-        mode === 'flow' ? (contextual ? 'is-context' : 'is-distant') : '',
-      ].filter(Boolean).join(' '),
+      selectable: false,
+      className: `story-edge ${edge.type === 'branch' ? 'is-branch' : ''}`,
+      data: {
+        sourceOrder: Math.max(0, sourceEdges.findIndex((item) => item.id === edge.id)),
+        sourceCount: Math.max(1, sourceEdges.length),
+        targetOrder: Math.max(0, targetEdges.findIndex((item) => item.id === edge.id)),
+        targetCount: Math.max(1, targetEdges.length),
+        branch: edge.type === 'branch',
+      },
     };
-  }), [mode, project.edges, state.currentNodeId]);
+  }), [incoming, outgoing, project.edges]);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        setLevel('note');
+      }
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [setLevel]);
 
   return (
-    <section className={`scene canvas-scene graph-mode-${mode}`}>
-      <div className="canvas-label"><span>{project.title}</span><small>{mode === 'canvas' ? 'map' : 'focus'}</small></div>
-      <ReactFlow
+    <section className="scene canvas-scene graph-mode-canvas">
+      <div className="canvas-label"><span>{project.title}</span><small>graph</small></div>
+      <ReactFlow<StoryMapNode, StoryGraphEdge>
         nodes={nodes}
         edges={edges}
         nodeTypes={nodeTypes}
+        edgeTypes={edgeTypes}
         nodesDraggable={false}
         nodesConnectable={false}
         nodesFocusable={false}
         edgesFocusable={false}
         elementsSelectable={false}
-        minZoom={0.2}
-        maxZoom={1.64}
+        minZoom={0.18}
+        maxZoom={1.42}
         panOnDrag
         panOnScroll={false}
         zoomOnScroll
@@ -169,36 +230,37 @@ function CanvasInner({ mode }: { mode: GraphMode }) {
         preventScrolling
         proOptions={{ hideAttribution: true }}
         onNodeClick={(_, node) => {
-          if (mode === 'canvas') {
+          const now = performance.now();
+          const previousTap = lastTap.current;
+          const alreadyCurrent = node.id === state.currentNodeId;
+
+          if (
+            alreadyCurrent &&
+            previousTap?.id === node.id &&
+            now - previousTap.at < 430
+          ) {
+            setLevel('note');
+          } else {
             focusCanvasNode(node.id);
-            setLevel('flow');
-            return;
           }
 
-          if (node.id === state.currentNodeId) setLevel('note');
-          else focusCanvasNode(node.id);
+          lastTap.current = { id: node.id, at: now };
         }}
         onNodeDoubleClick={(_, node) => {
           focusCanvasNode(node.id);
           setLevel('note');
         }}
-        onMoveEnd={(_, viewport) => {
-          if (mode === 'canvas' && viewport.zoom > 0.9) setLevel('flow');
-          if (mode === 'flow' && viewport.zoom < 0.58) setLevel('canvas');
-          if (mode === 'flow' && viewport.zoom > 1.48) setLevel('note');
-        }}
       >
-        <GraphCamera mode={mode} positions={positions} />
+        <GraphCamera positions={positions} />
       </ReactFlow>
+
       <div className="canvas-hint">
-        {mode === 'canvas'
-          ? 'drag to explore · scroll / pinch to zoom · tap a node to focus'
-          : 'scroll to change depth · tap a neighbour to follow · tap the focus to write'}
+        drag to explore · scroll / pinch to zoom · tap a node, tap again to write
       </div>
     </section>
   );
 }
 
-export function CanvasView({ mode }: { mode: GraphMode }) {
-  return <ReactFlowProvider><CanvasInner mode={mode} /></ReactFlowProvider>;
+export function CanvasView() {
+  return <ReactFlowProvider><CanvasInner /></ReactFlowProvider>;
 }

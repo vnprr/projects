@@ -37,8 +37,8 @@ type StoryGraphEdge = Edge<RoutedEdgeData, 'routed'>;
 
 function SemanticStoryNode({ data }: NodeProps<StoryMapNode>) {
   const { zoom } = useViewport();
-  const showTitle = data.current || zoom >= 0.43;
-  const showText = zoom >= 0.94;
+  const showTitle = data.current || zoom >= 0.36;
+  const showText = data.current ? zoom >= 0.84 : zoom >= 1.02;
 
   return (
     <div
@@ -101,7 +101,7 @@ const edgeTypes = { routed: RoutedStoryEdge };
 
 function GraphCamera({ positions }: { positions: Record<string, GraphPosition> }) {
   const { state } = useNavigation();
-  const { fitView, getViewport, setCenter } = useReactFlow<StoryMapNode, StoryGraphEdge>();
+  const { getViewport, setCenter } = useReactFlow<StoryMapNode, StoryGraphEdge>();
   const initialized = useRef(false);
 
   useEffect(() => {
@@ -253,8 +253,8 @@ function CanvasInner() {
         nodesFocusable={false}
         edgesFocusable={false}
         elementsSelectable={false}
-        minZoom={0.18}
-        maxZoom={1.42}
+        minZoom={0.14}
+        maxZoom={1.36}
         panOnDrag
         panOnScroll={false}
         zoomOnScroll
@@ -293,7 +293,7 @@ function CanvasInner() {
       </button>
 
       <div className="canvas-hint">
-        drag · scroll / pinch to zoom · tap node · tap again to write
+        drag · scroll / pinch to zoom · tap to focus · tap again to write
       </div>
     </section>
   );

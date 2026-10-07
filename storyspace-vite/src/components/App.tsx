@@ -27,7 +27,7 @@ export function App() {
       <Ambient />
       <NavigatorPanel />
       <DepthRail />
-      {state.currentLevel !== 'note' && <CanvasView mode={state.currentLevel} />}
+      {state.currentLevel === 'canvas' && <CanvasView />}
       {state.currentLevel === 'note' && <NoteView />}
     </main>
   );

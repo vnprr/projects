@@ -141,3 +141,27 @@
   .graph-add span{background:transparent;font-size:20px}
   .graph-add em{display:none}
 }
+
+
+.canvas-scene::before{
+  content:"";
+  position:absolute;
+  z-index:24;
+  top:0;
+  left:0;
+  right:0;
+  height:max(108px,calc(var(--safe-top) + 78px));
+  pointer-events:none;
+  background:linear-gradient(180deg,#08090b 0%,rgba(8,9,11,.92) 48%,rgba(8,9,11,.48) 76%,transparent 100%);
+}
+.canvas-label,.navigator-toggle{position:absolute}
+.semantic-map-node.is-current::before{
+  content:"";
+  position:absolute;
+  z-index:-1;
+  inset:-34px;
+  border-radius:42px;
+  background:radial-gradient(circle,rgba(255,255,255,.032),transparent 68%);
+  pointer-events:none;
+}
+

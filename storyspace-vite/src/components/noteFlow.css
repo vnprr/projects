@@ -469,3 +469,57 @@
   .note-edge-empty{gap:6px}
   .note-link-picker{bottom:46px}
 }
+\n
+/* UX audit pass */
+.note-scroll .note-title{
+  resize:none;
+  overflow:hidden;
+  white-space:pre-wrap;
+  overflow-wrap:anywhere;
+}
+.note-back{
+  top:calc(var(--safe-top) + 5px);
+  left:calc(var(--safe-left) + 50px);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:2px;
+  opacity:.34;
+}
+.note-back>span{box-shadow:none!important}
+.note-back-node{
+  width:4px!important;
+  height:4px!important;
+  border-radius:50%!important;
+  background:rgba(255,255,255,.72)!important;
+}
+.note-back-link{
+  width:10px!important;
+  height:1px!important;
+  background:rgba(255,255,255,.36)!important;
+}
+.gate-armed .note-gate-ring{
+  transform:rotate(-90deg) scale(1.12);
+  box-shadow:0 0 0 5px rgba(255,255,255,.025);
+}
+.gate-armed .note-edge-copy small{color:rgba(255,255,255,.58)}
+.gate-armed .note-edge-copy strong{color:rgba(255,255,255,.9)}
+.gate-armed.note-scene::before,
+.gate-armed.note-scene::after{filter:blur(24px)}
+.note-edge-single{grid-template-columns:auto minmax(0,1fr) auto}
+.note-edge-row{width:min(430px,100%);margin:0 auto}
+.note-edge-row .note-edge-single{width:100%}
+@media(max-width:640px){
+  .note-scroll .note-title{
+    font-size:clamp(34px,9.6vw,43px);
+    line-height:1.02;
+    letter-spacing:-.035em;
+  }
+  .note-scroll .note-paper{
+    padding-top:calc(var(--safe-top) + 72px);
+  }
+  .note-back{
+    top:calc(var(--safe-top) + 4px)!important;
+    left:calc(var(--safe-left) + 48px)!important;
+  }
+}

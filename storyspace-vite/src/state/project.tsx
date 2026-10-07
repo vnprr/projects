@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useMemo, useRef, useState, type PropsWithChildren } from 'react';
 import { sampleProject } from '../domain/sampleProject';
-import type { Project } from '../domain/types';
+import type { Project, StoryEdge, StoryNode } from '../domain/types';
 
 const STORAGE_KEY = 'storyspace.alpha.workspace.v3';
 const LEGACY_STORAGE_KEY = 'storyspace.alpha.project.v2';
@@ -15,8 +15,9 @@ type ProjectContextValue = {
   projects: Project[];
   switchProject: (projectId: string) => void;
   createProject: () => Project;
+  createNodeAfter: (fromNodeId: string) => StoryNode;
+  linkExistingNode: (fromNodeId: string, toNodeId: string) => StoryEdge | null;
   updateNodeContent: (nodeId: string, title: string, text: string) => void;
-  updateNodePosition: (nodeId: string, position: { x: number; y: number }) => void;
 };
 
 const ProjectContext = createContext<ProjectContextValue | null>(null);
@@ -30,6 +31,7 @@ function createEmptyProject(): Project {
   const now = new Date().toISOString();
   const projectId = freshId('project');
   const nodeId = freshId('node');
+
   return {
     id: projectId,
     title: 'Untitled project',
@@ -108,6 +110,62 @@ export function ProjectProvider({ children }: PropsWithChildren) {
     commitWorkspace({ ...current, projects });
   }, [commitWorkspace]);
 
+  const createNodeAfter = useCallback((fromNodeId: string) => {
+    const now = new Date().toISOString();
+    const created: StoryNode = {
+      id: freshId('node'),
+      title: 'Untitled',
+      text: '',
+      position: { x: 0, y: 0 },
+      createdAt: now,
+      updatedAt: now,
+      ambientHue: 214 + Math.floor(Math.random() * 22),
+    };
+
+    updateCurrentProject((project) => {
+      const outgoingCount = project.edges.filter((edge) => edge.from === fromNodeId).length;
+      const edge: StoryEdge = {
+        id: freshId('edge'),
+        from: fromNodeId,
+        to: created.id,
+        type: outgoingCount > 0 ? 'branch' : 'next',
+      };
+
+      return {
+        ...project,
+        nodes: [...project.nodes, created],
+        edges: [...project.edges, edge],
+      };
+    });
+
+    return created;
+  }, [updateCurrentProject]);
+
+  const linkExistingNode = useCallback((fromNodeId: string, toNodeId: string) => {
+    if (fromNodeId === toNodeId) return null;
+
+    const current = workspaceRef.current;
+    const project = current.projects.find((item) => item.id === current.currentProjectId);
+    if (!project) return null;
+    if (!project.nodes.some((node) => node.id === fromNodeId || node.id === toNodeId)) return null;
+    if (project.edges.some((edge) => edge.from === fromNodeId && edge.to === toNodeId)) return null;
+
+    const outgoingCount = project.edges.filter((edge) => edge.from === fromNodeId).length;
+    const edge: StoryEdge = {
+      id: freshId('edge'),
+      from: fromNodeId,
+      to: toNodeId,
+      type: outgoingCount > 0 ? 'branch' : 'next',
+    };
+
+    updateCurrentProject((value) => ({
+      ...value,
+      edges: [...value.edges, edge],
+    }));
+
+    return edge;
+  }, [updateCurrentProject]);
+
   const updateNodeContent = useCallback((nodeId: string, title: string, text: string) => {
     updateCurrentProject((project) => ({
       ...project,
@@ -117,22 +175,25 @@ export function ProjectProvider({ children }: PropsWithChildren) {
     }));
   }, [updateCurrentProject]);
 
-  const updateNodePosition = useCallback((nodeId: string, position: { x: number; y: number }) => {
-    updateCurrentProject((project) => ({
-      ...project,
-      nodes: project.nodes.map((node) => node.id === nodeId ? { ...node, position } : node),
-    }));
-  }, [updateCurrentProject]);
-
   const project = workspace.projects.find((item) => item.id === workspace.currentProjectId) ?? workspace.projects[0]!;
+
   const value = useMemo(() => ({
     project,
     projects: workspace.projects,
     switchProject,
     createProject,
+    createNodeAfter,
+    linkExistingNode,
     updateNodeContent,
-    updateNodePosition,
-  }), [createProject, project, switchProject, updateNodeContent, updateNodePosition, workspace.projects]);
+  }), [
+    createNodeAfter,
+    createProject,
+    linkExistingNode,
+    project,
+    switchProject,
+    updateNodeContent,
+    workspace.projects,
+  ]);
 
   return <ProjectContext.Provider value={value}>{children}</ProjectContext.Provider>;
 }

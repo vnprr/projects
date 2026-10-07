@@ -101,7 +101,7 @@ const edgeTypes = { routed: RoutedStoryEdge };
 
 function GraphCamera({ positions }: { positions: Record<string, GraphPosition> }) {
   const { state } = useNavigation();
-  const { getViewport, setCenter } = useReactFlow<StoryMapNode, StoryGraphEdge>();
+  const { getViewport, setViewport } = useReactFlow<StoryMapNode, StoryGraphEdge>();
   const initialized = useRef(false);
 
   useEffect(() => {
@@ -112,13 +112,22 @@ function GraphCamera({ positions }: { positions: Record<string, GraphPosition> }
       if (!position) return;
 
       const compact = window.matchMedia('(max-width: 720px)').matches;
+      if (initialized.current && !compact) return;
+
       const viewport = getViewport();
       const targetZoom = initialized.current
-        ? Math.max(compact ? 0.68 : 0.72, viewport.zoom)
-        : (compact ? 0.72 : 0.78);
+        ? Math.max(0.82, viewport.zoom)
+        : (compact ? 0.96 : 0.98);
 
-      void setCenter(position.x + 88, position.y + 34, {
+      const centerX = position.x + 88;
+      const centerY = position.y + 34;
+      const targetScreenY = window.innerHeight * (compact ? 0.32 : 0.36);
+
+      void setViewport({
+        x: window.innerWidth * 0.5 - centerX * targetZoom,
+        y: targetScreenY - centerY * targetZoom,
         zoom: targetZoom,
+      }, {
         duration: initialized.current ? 420 : 0,
       });
 
@@ -126,7 +135,7 @@ function GraphCamera({ positions }: { positions: Record<string, GraphPosition> }
     });
 
     return () => cancelAnimationFrame(frame);
-  }, [getViewport, positions, setCenter, state.currentNodeId]);
+  }, [getViewport, positions, setViewport, state.currentNodeId]);
 
   return null;
 }

@@ -372,6 +372,7 @@ export function NoteView() {
       style={sceneStyle}
       {...pinch}
     >
+      <div className="note-top-shield" aria-hidden="true" />
       <button
         className="note-back"
         onClick={() => {
@@ -380,9 +381,12 @@ export function NoteView() {
         }}
         aria-label="Back to graph"
       >
-        <span className="note-back-node" />
-        <span className="note-back-link" />
-        <span className="note-back-node" />
+        <svg className="note-back-glyph" viewBox="0 0 20 16" aria-hidden="true">
+          <path d="M4 3.5 L14.5 8 M4 12.5 L14.5 8" />
+          <circle cx="3.5" cy="3.5" r="1.5" />
+          <circle cx="3.5" cy="12.5" r="1.5" />
+          <circle cx="15.5" cy="8" r="1.5" />
+        </svg>
       </button>
 
       {previousNode && (

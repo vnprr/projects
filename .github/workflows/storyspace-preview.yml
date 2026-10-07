@@ -1,4 +1,4 @@
-name: Storyspace preview
+name: Storyspace build
 
 on:
   push:
@@ -8,14 +8,14 @@ on:
       - '.github/workflows/storyspace-preview.yml'
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
-  group: storyspace-preview
+  group: storyspace-build
   cancel-in-progress: true
 
 jobs:
-  build-and-publish:
+  build:
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -27,21 +27,47 @@ jobs:
           node-version: 22
           cache: npm
           cache-dependency-path: storyspace-vite/package.json
+
       - name: Install
         run: npm install --no-audit --no-fund
+
       - name: Build
         run: npm run build
-      - name: Publish preview branch
-        working-directory: storyspace-vite/dist
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create self-contained HTML
         run: |
-          touch .nojekyll
-          git init
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git checkout -b storyspace-preview
-          git add .
-          git commit -m "Storyspace preview ${GITHUB_SHA}"
-          git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
-          git push --force origin storyspace-preview
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          import path from 'node:path';
+
+          const dist = path.resolve('dist');
+          let html = fs.readFileSync(path.join(dist, 'index.html'), 'utf8');
+
+          html = html.replace(
+            /<link\s+rel="stylesheet"[^>]*href="([^"]+)"[^>]*>/g,
+            (_, href) => {
+              const file = path.join(dist, href.replace(/^\.\//, '').replace(/^\//, ''));
+              const css = fs.readFileSync(file, 'utf8');
+              return '<style>' + css + '</style>';
+            },
+          );
+
+          html = html.replace(
+            /<script\s+type="module"[^>]*src="([^"]+)"[^>]*><\/script>/g,
+            (_, src) => {
+              const file = path.join(dist, src.replace(/^\.\//, '').replace(/^\//, ''));
+              const js = fs.readFileSync(file, 'utf8').replace(/<\/script>/g, '<\\/script>');
+              return '<script type="module">' + js + '</script>';
+            },
+          );
+
+          fs.writeFileSync(path.join(dist, 'storyspace.html'), html);
+          NODE
+
+      - name: Upload conversation preview
+        uses: actions/upload-artifact@v4
+        with:
+          name: storyspace-html
+          path: storyspace-vite/dist/storyspace.html
+          if-no-files-found: error
+          retention-days: 7

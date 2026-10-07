@@ -1,5 +1,5 @@
 export type EdgeType = 'next' | 'branch';
-export type NavigationLevel = 'canvas' | 'flow' | 'note';
+export type NavigationLevel = 'canvas' | 'note';
 export type Motion = 'idle' | 'forward' | 'backward' | 'zoom-in' | 'zoom-out';
 
 export type StoryNode = {
@@ -31,6 +31,5 @@ export type NavigationState = {
   currentNodeId: string;
   currentLevel: NavigationLevel;
   history: string[];
-  branchIndex: number;
   motion: Motion;
 };

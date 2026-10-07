@@ -523,3 +523,37 @@
     left:calc(var(--safe-left) + 48px)!important;
   }
 }
+
+
+.note-top-shield{
+  position:absolute;
+  z-index:24;
+  top:0;
+  left:0;
+  right:0;
+  height:max(104px,calc(var(--safe-top) + 72px));
+  pointer-events:none;
+  background:linear-gradient(180deg,#08090b 0%,rgba(8,9,11,.96) 46%,rgba(8,9,11,.58) 74%,transparent 100%);
+  opacity:.92;
+}
+.note-back{
+  z-index:42;
+  display:grid!important;
+  place-items:center;
+}
+.note-back-glyph{
+  width:19px;
+  height:16px;
+  overflow:visible;
+}
+.note-back-glyph path{
+  fill:none;
+  stroke:rgba(255,255,255,.36);
+  stroke-width:1;
+  stroke-linecap:round;
+}
+.note-back-glyph circle{
+  fill:rgba(255,255,255,.7);
+}
+.edge-pull-bottom .note-top-shield{opacity:.98}
+

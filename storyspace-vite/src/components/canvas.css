@@ -108,3 +108,36 @@
   .semantic-map-node p{font-size:9px}
   .semantic-map-node.is-current{transform:scale(1.018)}
 }
+
+.canvas-scene.is-layout-pending .react-flow__viewport{opacity:.34}
+.react-flow__viewport{transition:opacity .2s ease}
+.graph-add{
+  position:absolute;
+  z-index:35;
+  right:max(18px,var(--safe-right));
+  bottom:max(48px,calc(var(--safe-bottom) + 30px));
+  display:flex;
+  align-items:center;
+  gap:9px;
+  min-height:38px;
+  padding:7px 12px 7px 9px;
+  border:1px solid rgba(255,255,255,.07);
+  border-radius:999px;
+  background:rgba(12,13,16,.68);
+  color:rgba(255,255,255,.7);
+  box-shadow:0 12px 36px rgba(0,0,0,.18);
+  backdrop-filter:blur(18px);
+  -webkit-backdrop-filter:blur(18px);
+  transition:transform .18s ease,background .18s ease,border-color .18s ease;
+}
+.graph-add:hover{transform:translateY(-2px);background:rgba(18,19,23,.78);border-color:rgba(255,255,255,.11)}
+.graph-add span{
+  width:22px;height:22px;display:grid;place-items:center;border-radius:50%;
+  background:rgba(255,255,255,.07);font-size:16px;font-weight:300;line-height:1;
+}
+.graph-add em{font-size:9px;font-style:normal;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.38)}
+@media(max-width:640px){
+  .graph-add{right:var(--safe-right);bottom:calc(var(--safe-bottom) + 34px);width:42px;height:42px;padding:0;justify-content:center}
+  .graph-add span{background:transparent;font-size:20px}
+  .graph-add em{display:none}
+}

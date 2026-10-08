@@ -4,14 +4,14 @@ import type { NavigationLevel, NavigationState } from '../domain/types';
 
 const initialState: NavigationState = {
   currentNodeId: sampleProject.entryNodeId,
-  currentLevel: 'canvas',
+  currentLevel: 'note',
   history: [],
   motion: 'idle',
 };
 
 type NavigationContextValue = {
   state: NavigationState;
-  goToNode: (nodeId: string) => void;
+  goToNode: (nodeId: string, direction?: 'forward' | 'backward') => void;
   goBack: () => void;
   setLevel: (level: NavigationLevel) => void;
   focusCanvasNode: (nodeId: string) => void;
@@ -22,14 +22,14 @@ const NavigationContext = createContext<NavigationContextValue | null>(null);
 export function NavigationProvider({ children }: PropsWithChildren) {
   const [state, setState] = useState(initialState);
 
-  const goToNode = useCallback((nodeId: string) => {
+  const goToNode = useCallback((nodeId: string, direction: 'forward' | 'backward' = 'forward') => {
     setState((current) => {
       if (nodeId === current.currentNodeId) return current;
       return {
         ...current,
         currentNodeId: nodeId,
         history: [...current.history, current.currentNodeId].slice(-64),
-        motion: 'forward',
+        motion: direction,
       };
     });
   }, []);

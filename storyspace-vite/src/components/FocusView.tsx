@@ -121,7 +121,7 @@ export function FocusView() {
       wheelBuffer.current = 0;
       changeLevel(direction);
     }
-    wheelTimer.current = window.setTimeout(() => { wheelBuffer.current = 0; }, 165);
+    wheelTimer.current = window.setTimeout(() => { wheelBuffer.current = 0; }, 470);
   };
 
   wheelHandlerRef.current = onWheel;

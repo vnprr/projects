@@ -1,27 +1,15 @@
-# Storyspace Alpha
+# Storyspace — mobile notebook reset
 
-UX prototype proving a semantic navigation model for literary projects:
+Mobile-first prototype with one black, full-screen plain-text editor and a left notes drawer. Create and switch notes. Autosave to localStorage (200ms debounce + pagehide flush).
 
-**Canvas ↔ Flow ↔ Note**
+No graph, camera, React Flow, ELK, semantic navigation gestures or graphics dependencies. Old data in storyspace.alpha.workspace.v3 is preserved untouched. New notes use storyspace.mobile-notebook.v1.
 
-## Stack
+## Start
 
-- React 19.3
-- TypeScript 7
-- Vite 8
-- React Flow 12
-
-## Run
-
-```bash
 npm install
 npm run dev
-```
-
-## Build
-
-```bash
 npm run build
-```
 
-The production build is static and has no runtime CDN dependency.
+## Architecture
+
+Use the browser's native textarea for mobile keyboard, IME, selection, caret and accessibility. Add a separate SVG + Motion graphics layer only when the design needs it; profile before considering PixiJS. The editor itself must remain independent from the graphics engine.

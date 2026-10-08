@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { Ambient } from './Ambient';
 import { CanvasView } from './CanvasView';
+import { FocusView } from './FocusView';
 import { NavigatorPanel } from './NavigatorPanel';
 import { NoteView } from './NoteView';
 import { useVisualViewportHeight } from '../hooks/useVisualViewport';
@@ -26,6 +27,7 @@ export function App() {
       <Ambient />
       <NavigatorPanel />
       {state.currentLevel === 'canvas' && <CanvasView />}
+      {state.currentLevel === 'focus' && <FocusView />}
       {state.currentLevel === 'note' && <NoteView />}
     </main>
   );

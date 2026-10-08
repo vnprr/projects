@@ -17,7 +17,7 @@ export function App() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [overview, setOverview] = useState(false);
   const workspaceRef = useRef(workspace);
-  const viewportRef = useRef<HTMLElement>(null);
+  const viewportRef = useRef<HTMLMainElement>(null);
   const editorRef = useRef<HTMLTextAreaElement>(null);
   const menuRef = useRef<HTMLButtonElement>(null);
   const addRef = useRef<HTMLButtonElement>(null);
@@ -102,12 +102,18 @@ export function App() {
     element.addEventListener('touchend', finish);
     element.addEventListener('touchcancel', finish);
     element.addEventListener('wheel', onWheel, { passive: false });
+    // Safari's native gesture must not zoom the browser while we're scaling the scene.
+    const blockSafariPageZoom = (event: Event) => { if (event.cancelable) event.preventDefault(); };
+    element.addEventListener('gesturestart', blockSafariPageZoom, { passive: false });
+    element.addEventListener('gesturechange', blockSafariPageZoom, { passive: false });
     return () => {
       element.removeEventListener('touchstart', onStart);
       element.removeEventListener('touchmove', onMove);
       element.removeEventListener('touchend', finish);
       element.removeEventListener('touchcancel', finish);
       element.removeEventListener('wheel', onWheel);
+      element.removeEventListener('gesturestart', blockSafariPageZoom);
+      element.removeEventListener('gesturechange', blockSafariPageZoom);
       if (wheelTimer.current !== undefined) clearTimeout(wheelTimer.current);
       zoomRef.current?.stop();
     };

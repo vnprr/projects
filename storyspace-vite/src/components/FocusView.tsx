@@ -93,7 +93,7 @@ export function FocusView() {
 
   useEffect(() => {
     const onKeyboard = (event: KeyboardEvent) => {
-      if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) return;
+      if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement || event.target instanceof HTMLButtonElement) return;
       if (event.key === 'Enter') { event.preventDefault(); changeLevel('in'); }
       if (event.key === 'Escape') { event.preventDefault(); changeLevel('out'); }
       if (event.key === 'ArrowUp' && incoming[0]) { event.preventDefault(); goToNode(incoming[0].id, 'backward'); }

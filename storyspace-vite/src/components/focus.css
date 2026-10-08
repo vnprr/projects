@@ -1,0 +1,209 @@
+.focus-scene {
+  background: radial-gradient(ellipse at 52% 43%, rgba(255,255,255,.013), transparent 62%);
+  overflow:hidden;
+  overscroll-behavior:none;
+  touch-action:none;
+}
+.focus-context-heading{
+  position:absolute;z-index:34;
+  top:calc(var(--safe-top) + 11px);
+  left:calc(var(--safe-left) + 51px);
+  display:flex;align-items:center;gap:9px;
+  color:rgba(246,247,250,.44);
+  font:520 11px/1 Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  pointer-events:none;
+}
+.focus-context-dot{width:2px;height:2px;background:rgba(255,255,255,.3);border-radius:50%}
+.focus-map-action{
+  position:absolute;z-index:35;
+  top:calc(var(--safe-top) + 5px);
+  right:calc(var(--safe-right) + 2px);
+  height:37px;padding:0 12px;
+  display:flex;align-items:center;gap:9px;
+  background:transparent;border:1px solid rgba(255,255,255,.055);
+  border-radius:11px;color:rgba(255,255,255,.42);
+  font:530 9px/1 Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  letter-spacing:.15em;
+  transition:color .2s ease,background .2s ease,border-color .2s ease;
+}
+.focus-map-action:hover,.focus-map-action:focus-visible{
+  color:#eee;background:rgba(255,255,255,.045);border-color:rgba(255,255,255,.14);
+}
+.focus-map-icon{font:300 18px/1 Georgia,serif;letter-spacing:0}
+.focus-stage{
+  position:absolute;
+  top:max(67px,calc(var(--safe-top) + 55px));
+  bottom:max(49px,calc(var(--safe-bottom) + 32px));
+  left:50%;transform:translateX(-50%);
+  width:min(890px,calc(100% - 54px));
+  display:grid;
+  grid-template-rows:minmax(56px,.17fr) minmax(190px,1fr) minmax(72px,.21fr);
+  gap:15px;
+  isolation:isolate;
+}
+.focus-links{
+  position:absolute;z-index:0;inset:0;
+  width:100%;height:100%;
+  overflow:visible;pointer-events:none;
+}
+.focus-links path{stroke:rgba(228,230,237,.19);fill:none;stroke-width:1.1;vector-effect:non-scaling-stroke;stroke-linecap:round}
+.focus-parents,.focus-children{
+  position:relative;z-index:2;
+  display:flex;justify-content:center;align-items:center;
+  gap:clamp(8px,2vw,26px);min-width:0;
+}
+.focus-parents{align-items:start;padding-top:2px}
+.focus-children{align-items:end;padding-bottom:2px;overflow-x:auto;scrollbar-width:none;scroll-snap-type:x proximity}
+.focus-children::-webkit-scrollbar{display:none}
+.focus-neighbor{
+  position:relative;flex:0 1 220px;min-width:0;max-width:228px;
+  display:grid;gap:6px;padding:13px 13px 15px 13px;
+  text-align:left;
+  border:0;border-bottom:1px solid rgba(255,255,255,.17);
+  background:linear-gradient(180deg,rgba(255,255,255,.012),transparent);
+  color:inherit;border-radius:6px;
+  transform:translate3d(0,0,0);
+  transition:transform .28s cubic-bezier(.17,.8,.23,1),background .2s ease,border-color .2s ease;
+  cursor:pointer;scroll-snap-align:center;
+}
+.focus-neighbor::after{
+  content:"";position:absolute;inset:-7px;
+  border-radius:12px;pointer-events:none;
+}
+.focus-neighbor:hover,.focus-neighbor:focus-visible{
+  background:rgba(255,255,255,.038);
+  border-bottom-color:rgba(255,255,255,.44);
+  transform:translate3d(0,-4px,0);
+  outline:none;
+}
+.focus-neighbor:active{transform:translateY(-1px)}
+.focus-neighbor-parent{align-self:start;border-bottom:0;border-top:1px solid rgba(255,255,255,.14);padding-top:10px}
+.focus-neighbor-meta{
+  font:550 8px/1 Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  letter-spacing:.16em;color:rgba(255,255,255,.32);
+}
+.focus-neighbor strong{
+  min-width:0;
+  display:-webkit-box;
+  -webkit-box-orient:vertical;
+  -webkit-line-clamp:2;
+  overflow:hidden;
+  font:490 clamp(12px,1.1vw,15px)/1.26 Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  letter-spacing:-.015em;color:rgba(255,255,255,.77);
+}
+.focus-origin-mark,.focus-end-mark{
+  font:500 9px/1 Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  letter-spacing:.2em;color:rgba(255,255,255,.22);
+  padding:15px;
+}
+.focus-document{
+  position:relative;z-index:2;
+  display:flex;flex-direction:column;align-items:stretch;
+  justify-self:center;align-self:stretch;
+  width:min(600px,100%);
+  min-height:0;
+  padding:clamp(25px,3vw,47px);
+  border:1px solid rgba(255,255,255,.14);
+  border-radius:22px;
+  background:linear-gradient(153deg,rgba(25,26,30,.71),rgba(11,12,15,.93) 72%);
+  box-shadow:0 25px 90px rgba(0,0,0,.26), inset 0 1px rgba(255,255,255,.018);
+  text-align:left;cursor:pointer;overflow:hidden;
+  transform:scale(var(--focus-pinch-scale,1));
+  transform-origin:center;
+  transition:border-color .28s ease,box-shadow .32s ease,transform .28s cubic-bezier(.18,.82,.2,1),background .2s ease;
+}
+.focus-document:hover,.focus-document:focus-visible{
+  outline:none;border-color:rgba(255,255,255,.29);
+  box-shadow:0 30px 100px rgba(0,0,0,.33),0 0 0 2px rgba(255,255,255,.016);
+}
+.focus-document-top,.focus-document-bottom{
+  display:flex;justify-content:space-between;align-items:center;gap:12px;
+  flex:0 0 auto;
+  color:rgba(255,255,255,.27);
+  font:520 9px/1.3 Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  letter-spacing:.08em;
+}
+.focus-document-top{height:12px}
+.focus-document-mark{
+  display:block;width:20px;height:3px;
+  border-radius:5px;background:rgba(255,255,255,.57);
+}
+.focus-document-copy{
+  flex:1 1 auto;min-height:0;
+  display:flex;flex-direction:column;
+  padding-top:clamp(25px,4vh,54px);
+  overflow:hidden;
+  -webkit-mask-image:linear-gradient(180deg,#000 0%,#000 80%,transparent 100%);
+  mask-image:linear-gradient(180deg,#000 0%,#000 80%,transparent 100%);
+}
+.focus-document-copy h1{
+  margin:0 0 23px;
+  color:rgba(250,250,251,.95);
+  font:450 clamp(34px,3.8vw,57px)/1.06 Georgia,"Times New Roman",serif;
+  letter-spacing:-.042em;overflow-wrap:anywhere;
+}
+.focus-document-copy p{
+  margin:0;white-space:pre-wrap;
+  font:400 clamp(16px,1.55vw,20px)/1.7 Georgia,"Times New Roman",serif;
+  color:rgba(247,247,249,.52);
+  overflow:hidden;
+}
+.focus-document-copy .focus-placeholder{color:rgba(255,255,255,.21)}
+.focus-document-bottom{
+  padding-top:18px;
+  border-top:1px solid rgba(255,255,255,.05);
+  letter-spacing:.035em;
+}
+.focus-open-writing{white-space:nowrap;letter-spacing:.11em;color:rgba(255,255,255,.59)}
+.focus-open-writing span{font-size:14px;padding-left:5px}
+.focus-enter-forward{animation:focus-enter-forward .48s cubic-bezier(.14,.78,.23,1) both}
+.focus-enter-backward{animation:focus-enter-backward .48s cubic-bezier(.14,.78,.23,1) both}
+@keyframes focus-enter-forward{
+  from{opacity:.22;transform:translate3d(0,21px,0) scale(.975)}
+  to{opacity:1;transform:translate3d(0,0,0) scale(1)}
+}
+@keyframes focus-enter-backward{
+  from{opacity:.22;transform:translate3d(0,-21px,0) scale(.975)}
+  to{opacity:1;transform:translate3d(0,0,0) scale(1)}
+}
+.focus-hint{
+  position:absolute;bottom:calc(var(--safe-bottom) + 4px);left:50%;
+  transform:translateX(-50%);white-space:nowrap;
+  color:rgba(255,255,255,.18);
+  font:500 8px/1 Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  letter-spacing:.14em;pointer-events:none;
+}
+@media (max-width:720px){
+  .focus-scene{touch-action:none}
+  .focus-map-action{width:38px;padding:0;justify-content:center}
+  .focus-map-action>span:last-child{display:none}
+  .focus-context-heading{font-size:10px}
+  .focus-stage{
+    width:calc(100% - 36px);
+    top:calc(var(--safe-top) + 46px);
+    bottom:calc(var(--safe-bottom) + 22px);
+    gap:8px;
+    grid-template-rows:minmax(48px,.13fr) minmax(220px,1fr) minmax(77px,.2fr);
+  }
+  .focus-document{
+    width:100%;padding:24px 24px 21px;border-radius:21px;
+  }
+  .focus-document-copy{padding-top:clamp(27px,7vh,50px)}
+  .focus-document-copy h1{font-size:clamp(33px,9vw,44px);margin-bottom:21px}
+  .focus-document-copy p{font-size:17px;line-height:1.64}
+  .focus-neighbor{min-width:0;flex:1 1 125px;max-width:190px;padding:8px 4px 12px;border-radius:4px}
+  .focus-neighbor strong{font-size:12px;line-height:1.22}
+  .focus-neighbor-meta{font-size:8px}
+  .focus-document-bottom{font-size:8px}
+  .focus-children:has(> :nth-child(4)){justify-content:flex-start}
+  .focus-children:has(> :nth-child(4)) .focus-neighbor{flex:0 0 125px}
+  .focus-hint{display:none}
+}
+@media (max-height:690px){
+  .focus-stage{top:calc(var(--safe-top) + 44px);bottom:calc(var(--safe-bottom) + 12px);gap:8px;grid-template-rows:minmax(42px,.13fr) minmax(160px,1fr) minmax(60px,.18fr)}
+  .focus-document{padding:18px}
+  .focus-document-copy{padding-top:19px}
+  .focus-document-copy h1{margin-bottom:13px;font-size:clamp(28px,7vw,40px)}
+  .focus-document-copy p{font-size:15px;line-height:1.52}
+  .focus-document-bottom{padding-top:10px}
+}

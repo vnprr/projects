@@ -361,7 +361,7 @@ export function NoteView() {
       trackpadZoom.current = Math.max(0, trackpadZoom.current + event.deltaY);
     }
     if (trackpadEnd.current) clearTimeout(trackpadEnd.current);
-    trackpadEnd.current = window.setTimeout(() => { trackpadZoom.current = 0; }, 180);
+    trackpadEnd.current = window.setTimeout(() => { trackpadZoom.current = 0; }, 470);
   };
 
   // Wheel events need an explicitly non-passive owner. React's delegated

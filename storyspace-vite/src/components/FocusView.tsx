@@ -5,7 +5,7 @@ import './focus.css';
 
 type EdgePath = { id: string; d: string; kind: 'parent' | 'child' };
 type Gesture = { distance: number; lastRatio: number };
-const getDistance = (a: Touch, b: Touch) => Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+const getDistance = (a: { clientX: number; clientY: number }, b: { clientX: number; clientY: number }) => Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 
 export function FocusView() {

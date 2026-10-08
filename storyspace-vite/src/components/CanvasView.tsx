@@ -1,15 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Handle,
-  Position,
-  ReactFlow,
-  ReactFlowProvider,
-  useReactFlow,
-  useViewport,
-  type Edge,
-  type EdgeProps,
-  type Node,
-  type NodeProps,
+  Handle, Position, ReactFlow, ReactFlowProvider,
+  useReactFlow, useViewport, type Edge, type EdgeProps,
+  type Node, type NodeProps,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import './canvas.css';
@@ -17,279 +10,115 @@ import { layoutProjectTopDown, type GraphPosition } from '../domain/layout';
 import { useNavigation } from '../state/navigation';
 import { useProject } from '../state/project';
 
-type StoryMapData = {
-  title: string;
-  text: string;
-  current: boolean;
-  branch: boolean;
-};
+type MapData = { title: string; current: boolean };
+type MapNode = Node<MapData, 'story'>;
+type MapEdge = Edge<{ branch: boolean }, 'curve'>;
 
-type RoutedEdgeData = {
-  sourceOrder: number;
-  sourceCount: number;
-  targetOrder: number;
-  targetCount: number;
-  branch: boolean;
-};
-
-type StoryMapNode = Node<StoryMapData, 'story'>;
-type StoryGraphEdge = Edge<RoutedEdgeData, 'routed'>;
-
-function SemanticStoryNode({ data }: NodeProps<StoryMapNode>) {
+function MapNodeVisual({ data }: NodeProps<MapNode>) {
   const { zoom } = useViewport();
-  const showTitle = data.current || zoom >= 0.36;
-  const showText = data.current ? zoom >= 0.84 : zoom >= 1.02;
-
   return (
-    <div
-      className={[
-        'semantic-map-node',
-        showTitle ? 'shows-title' : '',
-        showText ? 'shows-text' : '',
-        data.current ? 'is-current' : '',
-        data.branch ? 'is-branch' : '',
-      ].filter(Boolean).join(' ')}
-    >
+    <div className={`map-node ${data.current ? 'is-current' : ''} ${zoom < .38 ? 'is-distant' : ''}`}>
       <Handle type="target" position={Position.Top} />
-      <span className="semantic-map-node-mark" />
-      {showTitle && <strong>{data.title || 'Untitled'}</strong>}
-      {showText && data.text.trim() && <p>{data.text.trim().slice(0, 118)}</p>}
+      <span className="map-node-marker" aria-hidden="true" />
+      <strong>{data.title || 'Untitled'}</strong>
       <Handle type="source" position={Position.Bottom} />
     </div>
   );
 }
 
-function RoutedStoryEdge({
-  sourceX,
-  sourceY,
-  targetX,
-  targetY,
-  data,
-}: EdgeProps<StoryGraphEdge>) {
-  const vertical = Math.max(72, targetY - sourceY);
-  const sourceSpread = ((data?.sourceOrder ?? 0) - ((data?.sourceCount ?? 1) - 1) / 2) * 34;
-  const targetSpread = ((data?.targetOrder ?? 0) - ((data?.targetCount ?? 1) - 1) / 2) * 20;
-  const startX = sourceX + sourceSpread * 0.58;
-  const endX = targetX + targetSpread * 0.42;
-  const horizontalDistance = endX - startX;
-
-  const corridorX =
-    startX +
-    horizontalDistance * 0.5 +
-    sourceSpread * 0.42 -
-    targetSpread * 0.34;
-
-  const leaveY = sourceY + Math.min(88, vertical * 0.34);
-  const enterY = targetY - Math.min(88, vertical * 0.34);
-  const middleY = sourceY + vertical * 0.52;
-
-  const path = [
-    `M ${startX} ${sourceY}`,
-    `C ${startX} ${leaveY}, ${corridorX} ${leaveY}, ${corridorX} ${middleY}`,
-    `C ${corridorX} ${enterY}, ${endX} ${enterY}, ${endX} ${targetY}`,
-  ].join(' ');
-
-  return (
-    <path
-      className={`react-flow__edge-path story-routed-path ${data?.branch ? 'is-branch-path' : ''}`}
-      d={path}
-      fill="none"
-    />
-  );
+function CurveEdge({ sourceX, sourceY, targetX, targetY, data }: EdgeProps<MapEdge>) {
+  // Both the ELK model and DOM nodes use the same 176×68 geometry.
+  // A single monotonic Bezier replaces the old two-cubic detour/spaghetti.
+  const direction = targetY >= sourceY ? 1 : -1;
+  const curvature = Math.max(28, Math.min(98, Math.abs(targetY - sourceY) * .43));
+  const path = `M ${sourceX} ${sourceY} C ${sourceX} ${sourceY + direction * curvature}, ${targetX} ${targetY - direction * curvature}, ${targetX} ${targetY}`;
+  return <path className={`react-flow__edge-path map-curve ${data?.branch ? 'is-branch' : ''}`} d={path} fill="none" />;
 }
 
-const nodeTypes = { story: SemanticStoryNode };
-const edgeTypes = { routed: RoutedStoryEdge };
+const nodeTypes = { story: MapNodeVisual };
+const edgeTypes = { curve: CurveEdge };
 
-function GraphCamera({ positions }: { positions: Record<string, GraphPosition> }) {
-  const { state } = useNavigation();
-  const { project } = useProject();
-  const { getViewport, setViewport } = useReactFlow<StoryMapNode, StoryGraphEdge>();
+function InitialMapCamera({ positions }: { positions: Record<string, GraphPosition> }) {
+  const { fitView } = useReactFlow<MapNode, MapEdge>();
   const initialized = useRef(false);
 
   useEffect(() => {
-    if (!Object.keys(positions).length) return;
-
+    if (initialized.current || !Object.keys(positions).length) return;
+    let active = true;
     const frame = requestAnimationFrame(() => {
-      const position = positions[state.currentNodeId];
-      if (!position) return;
-
-      const compact = window.matchMedia('(max-width: 720px)').matches;
-      if (initialized.current && !compact) return;
-
-      const viewport = getViewport();
-      const hasIncoming = project.edges.some((edge) => edge.to === state.currentNodeId);
-      let targetZoom = compact ? 0.96 : 0.98;
-      let centerX = position.x + 88;
-      let centerY = position.y + 34;
-      let targetScreenY = window.innerHeight * (hasIncoming ? (compact ? 0.32 : 0.36) : 0.24);
-
-      if (compact) {
-        const contextIds = new Set<string>([state.currentNodeId]);
-        project.edges.forEach((edge) => {
-          if (edge.from === state.currentNodeId) contextIds.add(edge.to);
-          if (edge.to === state.currentNodeId) contextIds.add(edge.from);
-        });
-
-        const contextPositions = [...contextIds]
-          .map((id) => positions[id])
-          .filter((value): value is GraphPosition => Boolean(value));
-
-        if (contextPositions.length >= 3 || (hasIncoming && contextPositions.length >= 2)) {
-          const left = Math.min(...contextPositions.map((item) => item.x));
-          const right = Math.max(...contextPositions.map((item) => item.x + 176));
-          const top = Math.min(...contextPositions.map((item) => item.y));
-          const bottom = Math.max(...contextPositions.map((item) => item.y + 68));
-          const spanWidth = Math.max(176, right - left);
-          const spanHeight = Math.max(68, bottom - top);
-
-          targetZoom = Math.max(
-            0.54,
-            Math.min(
-              0.96,
-              (window.innerWidth - 42) / spanWidth,
-              (window.innerHeight * 0.67) / spanHeight,
-            ),
-          );
-
-          centerX = (left + right) / 2;
-          centerY = (top + bottom) / 2;
-          targetScreenY = window.innerHeight * 0.38;
-        } else if (initialized.current) {
-          targetZoom = Math.max(0.82, Math.min(0.96, viewport.zoom));
-        }
-      }
-
-      void setViewport({
-        x: window.innerWidth * 0.5 - centerX * targetZoom,
-        y: targetScreenY - centerY * targetZoom,
-        zoom: targetZoom,
-      }, {
-        duration: initialized.current ? 420 : 0,
-      });
-
+      if (!active) return;
+      void fitView({ duration: 240, padding: .18, maxZoom: .9 });
       initialized.current = true;
     });
-
-    return () => cancelAnimationFrame(frame);
-  }, [getViewport, positions, project.edges, setViewport, state.currentNodeId]);
+    return () => { active = false; cancelAnimationFrame(frame); };
+  }, [fitView, positions]);
 
   return null;
 }
 
-function CanvasInner() {
+function MapInner() {
   const { project, createNodeAfter } = useProject();
   const { state, focusCanvasNode, setLevel } = useNavigation();
   const [positions, setPositions] = useState<Record<string, GraphPosition>>({});
   const [layoutPending, setLayoutPending] = useState(true);
-  const lastTap = useRef<{ id: string; at: number } | null>(null);
+  const userGesture = useRef(false);
 
-  const topologyKey = useMemo(
-    () => [
-      ...project.nodes.map((node) => node.id),
-      '|',
-      ...project.edges.map((edge) => `${edge.id}:${edge.from}>${edge.to}`),
-    ].join(';'),
-    [project.edges, project.nodes],
-  );
+  const topologyKey = [
+    project.id,
+    ...project.nodes.map((node) => node.id),
+    '|',
+    ...project.edges.map((edge) => `${edge.id}:${edge.from}>${edge.to}`),
+  ].join(';');
 
   useEffect(() => {
     let cancelled = false;
     setLayoutPending(true);
-
     void layoutProjectTopDown(project).then((next) => {
       if (cancelled) return;
       setPositions(next);
       setLayoutPending(false);
     });
+    return () => { cancelled = true; };
+    // Layout must not restart when a note is edited and saved.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [topologyKey]);
 
-    return () => {
-      cancelled = true;
-    };
-  }, [project, topologyKey]);
-
-  const nodes = useMemo<StoryMapNode[]>(() => project.nodes.map((node) => ({
+  const nodes = useMemo<MapNode[]>(() => project.nodes.map((node) => ({
     id: node.id,
     type: 'story',
     position: positions[node.id] ?? { x: 0, y: 0 },
     draggable: false,
     selectable: false,
     focusable: false,
-    zIndex: node.id === state.currentNodeId ? 3 : 1,
-    data: {
-      title: node.title,
-      text: node.text,
-      current: node.id === state.currentNodeId,
-      branch: project.edges.filter((edge) => edge.from === node.id).length > 1,
-    },
+    data: { title: node.title, current: node.id === state.currentNodeId },
     className: 'story-map-node',
-  })), [positions, project.edges, project.nodes, state.currentNodeId]);
+  })), [positions, project.nodes, state.currentNodeId]);
 
-  const outgoing = useMemo(() => {
-    const groups = new Map<string, typeof project.edges>();
-    for (const edge of project.edges) {
-      const list = groups.get(edge.from) ?? [];
-      list.push(edge);
-      groups.set(edge.from, list);
-    }
-    return groups;
-  }, [project.edges]);
+  const edges = useMemo<MapEdge[]>(() => project.edges.map((edge) => ({
+    id: edge.id,
+    source: edge.from,
+    target: edge.to,
+    type: 'curve',
+    selectable: false,
+    focusable: false,
+    data: { branch: edge.type === 'branch' },
+  })), [project.edges]);
 
-  const incoming = useMemo(() => {
-    const groups = new Map<string, typeof project.edges>();
-    for (const edge of project.edges) {
-      const list = groups.get(edge.to) ?? [];
-      list.push(edge);
-      groups.set(edge.to, list);
-    }
-    return groups;
-  }, [project.edges]);
-
-  const edges = useMemo<StoryGraphEdge[]>(() => project.edges.map((edge) => {
-    const sourceEdges = outgoing.get(edge.from) ?? [];
-    const targetEdges = incoming.get(edge.to) ?? [];
-
-    return {
-      id: edge.id,
-      source: edge.from,
-      target: edge.to,
-      type: 'routed',
-      focusable: false,
-      selectable: false,
-      className: `story-edge ${edge.type === 'branch' ? 'is-branch' : ''}`,
-      data: {
-        sourceOrder: Math.max(0, sourceEdges.findIndex((item) => item.id === edge.id)),
-        sourceCount: Math.max(1, sourceEdges.length),
-        targetOrder: Math.max(0, targetEdges.findIndex((item) => item.id === edge.id)),
-        targetCount: Math.max(1, targetEdges.length),
-        branch: edge.type === 'branch',
-      },
-    };
-  }), [incoming, outgoing, project.edges]);
-
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Enter') {
-        event.preventDefault();
-        setLevel('note');
-      }
-    };
-
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [setLevel]);
-
-  const addContinuation = () => {
+  const enterFocus = (id = state.currentNodeId) => {
+    focusCanvasNode(id);
+    setLevel('focus');
+  };
+  const addNext = () => {
     const created = createNodeAfter(state.currentNodeId);
     focusCanvasNode(created.id);
     setLevel('note');
   };
 
   return (
-    <section className={`scene canvas-scene graph-mode-canvas ${layoutPending ? 'is-layout-pending' : ''}`}>
-      <div className="canvas-label"><span>{project.title}</span><small>graph</small></div>
-
-      <ReactFlow<StoryMapNode, StoryGraphEdge>
+    <section className={`scene canvas-scene map-scene ${layoutPending ? 'is-layout-pending' : ''}`}>
+      <div className="canvas-label"><span>{project.title}</span><small>map</small></div>
+      <button className="map-focus-action" onClick={() => enterFocus()} aria-label="Zoom to selected note">FOCUS <span>↗</span></button>
+      <ReactFlow<MapNode, MapEdge>
         nodes={nodes}
         edges={edges}
         nodeTypes={nodeTypes}
@@ -299,8 +128,8 @@ function CanvasInner() {
         nodesFocusable={false}
         edgesFocusable={false}
         elementsSelectable={false}
-        minZoom={0.14}
-        maxZoom={1.36}
+        minZoom={.14}
+        maxZoom={1.42}
         panOnDrag
         panOnScroll={false}
         zoomOnScroll
@@ -308,31 +137,22 @@ function CanvasInner() {
         zoomOnDoubleClick={false}
         preventScrolling
         proOptions={{ hideAttribution: true }}
-        onNodeClick={(_, node) => {
-          if (node.id === state.currentNodeId) {
-            setLevel('note');
-            return;
-          }
-
-          focusCanvasNode(node.id);
+        onMoveStart={(event) => { if (event) userGesture.current = true; }}
+        onMoveEnd={(_, viewport) => {
+          if (userGesture.current && viewport.zoom > 1.24) enterFocus();
+          userGesture.current = false;
         }}
-        onNodeDoubleClick={(_, node) => {
-          focusCanvasNode(node.id);
-          setLevel('note');
-        }}
+        onNodeClick={(_, node) => enterFocus(node.id)}
       >
-        <GraphCamera positions={positions} />
+        <InitialMapCamera positions={positions} />
       </ReactFlow>
-
-      <button className="graph-add" onClick={addContinuation} aria-label="Add continuation">
-        <span>+</span>
-        <em>continuation</em>
+      <button className="graph-add" onClick={addNext} aria-label="Add continuation from selected note">
+        <span>+</span><em>continuation</em>
       </button>
-
     </section>
   );
 }
 
 export function CanvasView() {
-  return <ReactFlowProvider><CanvasInner /></ReactFlowProvider>;
+  return <ReactFlowProvider><MapInner /></ReactFlowProvider>;
 }

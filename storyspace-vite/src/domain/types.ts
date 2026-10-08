@@ -1,5 +1,5 @@
 export type EdgeType = 'next' | 'branch';
-export type NavigationLevel = 'canvas' | 'note';
+export type NavigationLevel = 'canvas' | 'focus' | 'note';
 export type Motion = 'idle' | 'forward' | 'backward' | 'zoom-in' | 'zoom-out';
 
 export type StoryNode = {

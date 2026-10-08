@@ -174,7 +174,7 @@ export function NoteView() {
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setLevel('canvas');
+      if (event.key === 'Escape') setLevel('focus');
     };
 
     window.addEventListener('keydown', onKeyDown);
@@ -292,6 +292,7 @@ export function NoteView() {
   }, [phase, resetGate, resolveBottomGate, resolveTopGate]);
 
   const handleWheel = (event: React.WheelEvent<HTMLDivElement>) => {
+    if (event.ctrlKey || event.metaKey) return;
     if (performance.now() < wheelLockUntil.current || phase !== 'idle') {
       event.preventDefault();
       finishWheelSessionSoon();
@@ -312,14 +313,13 @@ export function NoteView() {
 
     const session = wheelSession.current;
 
-    if (session.edge === 'bottom' && event.deltaY > 0) {
+    // The direction of travel matters: reversing the wheel DISCHARGES the spring.
+    // One burst can never commit after the user has pulled it back below the reset threshold.
+    if (session.edge === 'bottom' || session.edge === 'top') {
       event.preventDefault();
-      session.pull += Math.min(52, Math.abs(event.deltaY));
-      session.armed = updateGateFromPull('bottom', session.pull, WHEEL_THRESHOLD, session.armed);
-    } else if (session.edge === 'top' && event.deltaY < 0) {
-      event.preventDefault();
-      session.pull += Math.min(52, Math.abs(event.deltaY));
-      session.armed = updateGateFromPull('top', session.pull, WHEEL_THRESHOLD, session.armed);
+      const directionalDelta = session.edge === 'bottom' ? event.deltaY : -event.deltaY;
+      session.pull = Math.max(0, session.pull + Math.max(-52, Math.min(52, directionalDelta)));
+      session.armed = updateGateFromPull(session.edge, session.pull, WHEEL_THRESHOLD, session.armed);
     }
 
     finishWheelSessionSoon();
@@ -342,7 +342,27 @@ export function NoteView() {
     setBranchOpen(true);
   }, [linkExistingNode, node.id]);
 
-  const pinch = usePinch({ onZoomOut: () => setLevel('canvas') });
+  const pinch = usePinch({ onZoomOut: () => setLevel('focus') });
+  const trackpadZoom = useRef(0);
+  const trackpadEnd = useRef<number | null>(null);
+
+  const handleSemanticZoom = (event: React.WheelEvent<HTMLElement>) => {
+    if (!event.ctrlKey && !event.metaKey) return;
+    event.preventDefault();
+    event.stopPropagation();
+    if (event.deltaY >= 0) {
+      trackpadZoom.current += Math.min(65, event.deltaY);
+      if (trackpadZoom.current > 78) {
+        trackpadZoom.current = 0;
+        flush();
+        setLevel('focus');
+      }
+    } else {
+      trackpadZoom.current = Math.max(0, trackpadZoom.current + event.deltaY);
+    }
+    if (trackpadEnd.current) clearTimeout(trackpadEnd.current);
+    trackpadEnd.current = window.setTimeout(() => { trackpadZoom.current = 0; }, 180);
+  };
 
   const visualProgress = Math.min(1, gate.progress);
   const basePull = 1 - Math.pow(1 - visualProgress, 2.15);
@@ -370,6 +390,7 @@ export function NoteView() {
         gate.armed ? 'gate-armed' : '',
       ].filter(Boolean).join(' ')}
       style={sceneStyle}
+      onWheelCapture={handleSemanticZoom}
       {...pinch}
     >
       <div className="note-top-shield" aria-hidden="true" />
@@ -377,9 +398,9 @@ export function NoteView() {
         className="note-back"
         onClick={() => {
           flush();
-          setLevel('canvas');
+          setLevel('focus');
         }}
-        aria-label="Back to graph"
+        aria-label="Zoom out to nearby notes"
       >
         <svg className="note-back-glyph" viewBox="0 0 20 16" aria-hidden="true">
           <path d="M4 3.5 L14.5 8 M4 12.5 L14.5 8" />

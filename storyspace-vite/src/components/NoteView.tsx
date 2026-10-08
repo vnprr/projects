@@ -291,7 +291,7 @@ export function NoteView() {
     }, WHEEL_GAP_MS);
   }, [phase, resetGate, resolveBottomGate, resolveTopGate]);
 
-  const handleWheel = (event: React.WheelEvent<HTMLDivElement>) => {
+  const handleWheel = (event: globalThis.WheelEvent) => {
     if (event.ctrlKey || event.metaKey) return;
     if (performance.now() < wheelLockUntil.current || phase !== 'idle') {
       event.preventDefault();
@@ -346,7 +346,7 @@ export function NoteView() {
   const trackpadZoom = useRef(0);
   const trackpadEnd = useRef<number | null>(null);
 
-  const handleSemanticZoom = (event: React.WheelEvent<HTMLElement>) => {
+  const handleSemanticZoom = (event: globalThis.WheelEvent) => {
     if (!event.ctrlKey && !event.metaKey) return;
     event.preventDefault();
     event.stopPropagation();
@@ -363,6 +363,21 @@ export function NoteView() {
     if (trackpadEnd.current) clearTimeout(trackpadEnd.current);
     trackpadEnd.current = window.setTimeout(() => { trackpadZoom.current = 0; }, 180);
   };
+
+  // Wheel events need an explicitly non-passive owner. React's delegated
+  // onWheel handler is passive in Chromium and cannot stop document scrolling.
+  const nativeWheelHandlerRef = useRef<(event: globalThis.WheelEvent) => void>(() => {});
+  nativeWheelHandlerRef.current = (event: globalThis.WheelEvent) => {
+    if (event.ctrlKey || event.metaKey) handleSemanticZoom(event);
+    else handleWheel(event);
+  };
+  useEffect(() => {
+    const element = scrollRef.current;
+    if (!element) return;
+    const listener = (event: globalThis.WheelEvent) => nativeWheelHandlerRef.current(event);
+    element.addEventListener('wheel', listener, { passive: false });
+    return () => element.removeEventListener('wheel', listener);
+  }, []);
 
   const visualProgress = Math.min(1, gate.progress);
   const basePull = 1 - Math.pow(1 - visualProgress, 2.15);
@@ -390,7 +405,6 @@ export function NoteView() {
         gate.armed ? 'gate-armed' : '',
       ].filter(Boolean).join(' ')}
       style={sceneStyle}
-      onWheelCapture={handleSemanticZoom}
       {...pinch}
     >
       <div className="note-top-shield" aria-hidden="true" />
@@ -426,7 +440,6 @@ export function NoteView() {
         ref={scrollRef}
         className={`note-scroll note-phase-${phase}`}
         onScroll={syncEdges}
-        onWheel={handleWheel}
         onTouchStartCapture={(event) => {
           if (event.touches.length !== 1 || phase !== 'idle') return;
           const touch = event.touches.item(0);

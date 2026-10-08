@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type TouchEvent, type WheelEvent } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type TouchEvent } from 'react';
 import { useNavigation } from '../state/navigation';
 import { useProject } from '../state/project';
 import './focus.css';
@@ -24,6 +24,8 @@ export function FocusView() {
     [current.id, project.edges, project.nodes]);
 
   const stageRef = useRef<HTMLDivElement>(null);
+  const focusRef = useRef<HTMLElement>(null);
+  const wheelHandlerRef = useRef<(event: globalThis.WheelEvent) => void>(() => {});
   const centerRef = useRef<HTMLButtonElement>(null);
   const parentRefs = useRef(new Map<string, HTMLButtonElement>());
   const childRefs = useRef(new Map<string, HTMLButtonElement>());
@@ -109,7 +111,7 @@ export function FocusView() {
     if (lockTimer.current) clearTimeout(lockTimer.current);
   }, []);
 
-  const onWheel = (event: WheelEvent<HTMLElement>) => {
+  const onWheel = (event: globalThis.WheelEvent) => {
     if (!event.ctrlKey && !event.metaKey) return;
     event.preventDefault();
     wheelBuffer.current += clamp(event.deltaY, -65, 65);
@@ -121,6 +123,15 @@ export function FocusView() {
     }
     wheelTimer.current = window.setTimeout(() => { wheelBuffer.current = 0; }, 165);
   };
+
+  wheelHandlerRef.current = onWheel;
+  useEffect(() => {
+    const element = focusRef.current;
+    if (!element) return;
+    const listener = (event: globalThis.WheelEvent) => wheelHandlerRef.current(event);
+    element.addEventListener('wheel', listener, { passive: false });
+    return () => element.removeEventListener('wheel', listener);
+  }, []);
 
   const onTouchStart = (event: TouchEvent<HTMLElement>) => {
     if (event.touches.length !== 2) return;
@@ -154,7 +165,7 @@ export function FocusView() {
   const stageStyle = { '--focus-pinch-scale': String(pinchRatio) } as CSSProperties;
 
   return (
-    <section className="scene focus-scene" onWheel={onWheel} onTouchStart={onTouchStart}
+    <section ref={focusRef} className="scene focus-scene" onTouchStart={onTouchStart}
       onTouchMove={onTouchMove} onTouchEnd={onTouchEnd} onTouchCancel={() => { pinchRef.current = null; setPinchRatio(1); }}>
       <div className="focus-context-heading" aria-hidden="true">{project.title}<span className="focus-context-dot" />focus</div>
       <button className="focus-map-action" aria-label="View project map" onClick={() => changeLevel('out')}>
@@ -183,7 +194,7 @@ export function FocusView() {
 
         <button
           key={current.id}
-          className={`focus-document focus-enter-${state.motion === 'backward' ? 'backward' : 'forward'}`}
+          className={`focus-document ${current.text.trim().length < 240 ? 'is-short' : ''} focus-enter-${state.motion === 'backward' ? 'backward' : 'forward'}`}
           ref={centerRef}
           onClick={() => changeLevel('in')}
           aria-label={`Open note for editing: ${current.title}`}

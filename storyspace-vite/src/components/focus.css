@@ -207,3 +207,51 @@
   .focus-document-copy p{font-size:15px;line-height:1.52}
   .focus-document-bottom{padding-top:10px}
 }
+
+/* Content-weighted camera: the focus note grows only when the story needs space. */
+.focus-stage{
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  align-items:center;
+  gap:clamp(13px,2vh,23px);
+}
+.focus-parents{
+  flex:0 0 63px;
+  width:100%;
+  align-items:center;
+}
+.focus-document{
+  flex:0 1 auto;
+  align-self:center;
+  height:min(54dvh,520px);
+  max-height:100%;
+}
+.focus-document.is-short{height:min(42dvh,388px)}
+.focus-children{
+  flex:0 0 88px;
+  align-self:stretch;
+  align-items:center;
+}
+.focus-origin-mark{opacity:.5}
+.focus-hint{display:none}
+@media(max-width:720px){
+  .focus-stage{
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    gap:clamp(11px,1.8vh,17px);
+  }
+  .focus-document{height:min(55dvh,465px)}
+  .focus-document.is-short{height:min(42dvh,365px)}
+  .focus-parents{flex:0 0 56px}
+  .focus-children{flex:0 0 79px}
+  .focus-document-copy{padding-top:clamp(15px,3vh,29px)}
+  .focus-document-copy h1{font-size:clamp(33px,8vw,40px)}
+}
+@media(max-height:690px){
+  .focus-parents{flex-basis:43px}
+  .focus-children{flex-basis:58px}
+  .focus-document{height:min(51dvh,395px)}
+  .focus-document.is-short{height:min(43dvh,310px)}
+}
